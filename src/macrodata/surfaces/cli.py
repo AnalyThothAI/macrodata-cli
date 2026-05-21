@@ -21,9 +21,11 @@ app = typer.Typer(
 fetch_app = typer.Typer(help="Fetch macro observations.")
 catalog_app = typer.Typer(help="Inspect curated source catalog.")
 source_app = typer.Typer(help="Inspect data source health.")
+bundle_app = typer.Typer(help="Fetch curated macro bundles.")
 app.add_typer(fetch_app, name="fetch")
 app.add_typer(catalog_app, name="catalog")
 app.add_typer(source_app, name="source")
+app.add_typer(bundle_app, name="bundle")
 
 
 @app.callback()
@@ -173,6 +175,88 @@ def source_smoke(
             data_quality="ok" if result.ok else "unavailable",
         ),
         pretty=output_format == "pretty",
+    )
+
+
+def _run_bundle_command(
+    *,
+    bundle_name: str,
+    command: str,
+    asof: str,
+    fred_api_key: str | None,
+    output_format: str,
+) -> None:
+    started = time.monotonic()
+    runtime = build_runtime(fred_api_key=fred_api_key or os.getenv("FRED_API_KEY"))
+    try:
+        snapshot = runtime.service.bundle(bundle_name, asof=asof)
+    except MacrodataError as exc:
+        emit(
+            error_envelope(
+                command=command,
+                error=exc,
+                source_chain=[exc.provider or "bundle"],
+                latency_ms=int((time.monotonic() - started) * 1000),
+            ),
+            pretty=output_format == "pretty",
+        )
+        raise typer.Exit(exc.exit_code) from exc
+    emit(
+        success_envelope(
+            command=command,
+            data={"snapshot": snapshot.model_dump(mode="json")},
+            source_chain=snapshot.source_chain,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            data_quality=snapshot.data_quality,
+            reason_codes=snapshot.reason_codes,
+        ),
+        pretty=output_format == "pretty",
+    )
+
+
+@bundle_app.command("rates-core")
+def bundle_rates_core(
+    asof: str = typer.Option(..., "--asof"),
+    fred_api_key: str | None = typer.Option(None, "--fred-api-key"),
+    output_format: str = typer.Option("json", "--format"),
+) -> None:
+    _run_bundle_command(
+        bundle_name="rates-core",
+        command="bundle.rates-core",
+        asof=asof,
+        fred_api_key=fred_api_key,
+        output_format=output_format,
+    )
+
+
+@bundle_app.command("liquidity-core")
+def bundle_liquidity_core(
+    asof: str = typer.Option(..., "--asof"),
+    fred_api_key: str | None = typer.Option(None, "--fred-api-key"),
+    output_format: str = typer.Option("json", "--format"),
+) -> None:
+    _run_bundle_command(
+        bundle_name="liquidity-core",
+        command="bundle.liquidity-core",
+        asof=asof,
+        fred_api_key=fred_api_key,
+        output_format=output_format,
+    )
+
+
+@bundle_app.command("fetch")
+def bundle_fetch(
+    bundle_name: str,
+    asof: str = typer.Option(..., "--asof"),
+    fred_api_key: str | None = typer.Option(None, "--fred-api-key"),
+    output_format: str = typer.Option("json", "--format"),
+) -> None:
+    _run_bundle_command(
+        bundle_name=bundle_name,
+        command="bundle.fetch",
+        asof=asof,
+        fred_api_key=fred_api_key,
+        output_format=output_format,
     )
 
 
