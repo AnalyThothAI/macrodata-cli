@@ -13,9 +13,12 @@ def _fred(dataset: str, name: str, description: str, unit: str | None, frequency
         unit=unit,
         frequency=frequency,
         latency_class="eod",
-        requires_api_key=True,
+        requires_api_key=False,
         source_url=f"https://fred.stlouisfed.org/series/{dataset}",
-        license_note="FRED terms and upstream source terms apply.",
+        license_note=(
+            "FRED terms and upstream source terms apply; "
+            "API key is optional because the public CSV endpoint is supported."
+        ),
     )
 
 

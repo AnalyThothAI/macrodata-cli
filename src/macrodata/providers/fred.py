@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import csv
+from datetime import UTC, datetime, timedelta
+from io import StringIO
 from typing import Any
+
+import httpx
 
 from macrodata.core.errors import MacrodataError
 from macrodata.core.models import MacroObservation, ProviderSmokeResult
@@ -11,13 +15,16 @@ from macrodata.gateway.http_client import MacrodataHttpClient
 class FredSeriesProvider:
     provider_name = "fred"
     base_url = "https://api.stlouisfed.org/fred/series/observations"
+    public_csv_url = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 
     def __init__(self, *, http_client: MacrodataHttpClient, api_key: str | None) -> None:
         self._http_client = http_client
         self._api_key = (api_key or "").strip()
 
     def get_latest(self, dataset: str) -> MacroObservation:
-        observations = self.get_range(dataset, start="1776-07-04", end=datetime.now(UTC).date().isoformat())
+        end_date = datetime.now(UTC).date()
+        start_date = end_date - timedelta(days=3650)
+        observations = self.get_range(dataset, start=start_date.isoformat(), end=end_date.isoformat())
         if not observations:
             raise MacrodataError(
                 code="no_data",
@@ -29,12 +36,8 @@ class FredSeriesProvider:
 
     def get_range(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
         if not self._api_key:
-            raise MacrodataError(
-                code="missing_api_key",
-                message="FRED_API_KEY is required",
-                provider="fred",
-                exit_code=2,
-            )
+            return self._get_range_from_public_csv(dataset, start=start, end=end)
+
         payload = self._http_client.get_json(
             self.base_url,
             params={
@@ -64,6 +67,78 @@ class FredSeriesProvider:
                 )
             observations.append(self._parse_observation(dataset, item))
         return observations
+
+    def _get_range_from_public_csv(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
+        text = self._get_public_csv_text(dataset, start=start, end=end)
+        rows = self._parse_public_csv_rows(dataset, text)
+        observations: list[MacroObservation] = []
+        for row in rows:
+            observed_at = str(row.get("observation_date", "")).strip()
+            if not observed_at or observed_at < start or observed_at > end:
+                continue
+            observations.append(self._parse_observation(dataset, {"date": observed_at, "value": row.get(dataset)}))
+        return observations
+
+    def _get_public_csv_text(self, dataset: str, *, start: str, end: str) -> str:
+        try:
+            with httpx.Client(timeout=self._http_client.timeout_sec, follow_redirects=True) as client:
+                response = client.get(
+                    self.public_csv_url,
+                    params={"id": dataset, "cosd": start, "coed": end},
+                    headers={"User-Agent": "macrodata-cli/0.1"},
+                )
+                response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            raise MacrodataError(
+                code="provider_timeout",
+                message=f"fred request timed out after {self._http_client.timeout_sec:.1f} seconds",
+                retryable=True,
+                provider="fred",
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise MacrodataError(
+                code="provider_http_error",
+                message=f"fred returned HTTP {exc.response.status_code}",
+                retryable=exc.response.status_code in {429, 500, 502, 503, 504},
+                provider="fred",
+            ) from exc
+        except httpx.InvalidURL as exc:
+            raise MacrodataError(
+                code="provider_invalid_request",
+                message="fred request URL is invalid",
+                retryable=False,
+                provider="fred",
+            ) from exc
+        except httpx.RequestError as exc:
+            raise MacrodataError(
+                code="provider_request_error",
+                message=f"fred request failed: {type(exc).__name__}",
+                retryable=not isinstance(exc, (httpx.UnsupportedProtocol, httpx.LocalProtocolError)),
+                provider="fred",
+            ) from exc
+        return response.text
+
+    def _parse_public_csv_rows(self, dataset: str, text: str) -> list[dict[str, str]]:
+        try:
+            rows = list(csv.DictReader(StringIO(text)))
+        except csv.Error as exc:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message=f"FRED CSV for {dataset} could not be parsed",
+                retryable=False,
+                provider="fred",
+            ) from exc
+        if not rows:
+            return []
+        required_columns = {"observation_date", dataset}
+        if not required_columns.issubset(rows[0]):
+            raise MacrodataError(
+                code="provider_parse_error",
+                message=f"FRED CSV for {dataset} is missing required columns",
+                retryable=False,
+                provider="fred",
+            )
+        return rows
 
     def smoke(self) -> ProviderSmokeResult:
         checked_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -108,7 +183,7 @@ class FredSeriesProvider:
         )
 
     def _parse_value(self, *, dataset: str, observed_at: str, raw_value: Any) -> float | None:
-        if raw_value in {None, "."}:
+        if raw_value is None or str(raw_value).strip() in {"", "."}:
             return None
         try:
             return float(str(raw_value))

@@ -4,23 +4,25 @@ import json
 
 import pytest
 import respx
-from httpx import Response
+from httpx import Request, Response
 from typer.testing import CliRunner
 
 from macrodata.surfaces.cli import app
 
 FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
+FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
 OPERATING_CASH_BALANCE_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/dts/operating_cash_balance"
 )
 STOOQ_URL = "https://stooq.com/q/d/l/"
+STOOQ_QUOTE_URL = "https://stooq.com/q/l/"
 CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
 TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
 EXPECTED_RATES_REQUESTED = 9
 EXPECTED_LIQUIDITY_REQUESTED = 5
 EXPECTED_MIN_MACRO_REQUESTED = 20
-EXPECTED_FRED_RATE_FAILURES = 8
+EXPECTED_MACRO_HISTORY_AVAILABLE_WITHOUT_STOOQ = 25
 VALIDATION_EXIT_CODE = 2
 
 
@@ -40,6 +42,18 @@ def mock_fred() -> None:
             },
         )
     )
+
+
+def mock_fred_public_csv() -> None:
+    def respond(request: Request) -> Response:
+        dataset = request.url.params["id"]
+        return Response(200, text=f"observation_date,{dataset}\n2026-05-20,4.57\n")
+
+    respx.get(FRED_CSV_URL).mock(side_effect=respond)
+
+
+def mock_fred_public_csv_http_error() -> None:
+    respx.get(FRED_CSV_URL).mock(return_value=Response(503, text="temporarily unavailable"))
 
 
 def mock_nyfed() -> None:
@@ -80,6 +94,24 @@ def mock_stooq() -> None:
             text="Date,Open,High,Low,Close,Volume\n2026-05-20,600.0,605.0,598.0,604.25,1000\n",
         )
     )
+
+
+def mock_stooq_latest() -> None:
+    def respond(request: Request) -> Response:
+        symbol = str(request.url.params["s"]).upper()
+        return Response(
+            200,
+            text=(
+                "Symbol,Date,Time,Open,High,Low,Close,Volume\n"
+                f"{symbol},2026-05-20,22:00:25,600.0,605.0,598.0,604.25,1000\n"
+            ),
+        )
+
+    respx.get(STOOQ_QUOTE_URL).mock(side_effect=respond)
+
+
+def mock_stooq_history_requires_key() -> None:
+    respx.get(STOOQ_URL).mock(return_value=Response(200, text="Get your apikey: enter the captcha code."))
 
 
 def mock_cftc() -> None:
@@ -146,7 +178,7 @@ def test_macro_core_bundle_command() -> None:
     mock_fred()
     mock_nyfed()
     mock_treasury_fiscal()
-    mock_stooq()
+    mock_stooq_latest()
     mock_cftc()
 
     result = CliRunner().invoke(
@@ -167,9 +199,10 @@ def test_macro_core_bundle_command() -> None:
 @respx.mock
 def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FRED_API_KEY", raising=False)
+    mock_fred_public_csv()
     mock_nyfed()
     mock_treasury_fiscal()
-    mock_stooq()
+    mock_stooq_history_requires_key()
     mock_cftc()
 
     result = CliRunner().invoke(
@@ -184,16 +217,19 @@ def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> N
     assert snapshot["bundle"] == "macro-core"
     assert isinstance(snapshot["observations"], list)
     assert snapshot["coverage"]["requested"] >= EXPECTED_MIN_MACRO_REQUESTED
+    assert snapshot["coverage"]["available"] == EXPECTED_MACRO_HISTORY_AVAILABLE_WITHOUT_STOOQ
     assert "coverage" in snapshot
     assert "missing_series" in snapshot
     assert "series_errors" in snapshot
+    assert "missing_api_key" in snapshot["reason_codes"]
 
 
 @respx.mock
-def test_rates_core_without_fred_api_key_exposes_missing_api_key(
+def test_rates_core_without_fred_api_key_uses_public_csv(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("FRED_API_KEY", raising=False)
+    mock_fred_public_csv()
     mock_nyfed()
 
     result = CliRunner().invoke(app, ["bundle", "rates-core", "--asof", "2026-05-21"])
@@ -202,19 +238,14 @@ def test_rates_core_without_fred_api_key_exposes_missing_api_key(
     payload = json.loads(result.stdout)
     snapshot = payload["data"]["snapshot"]
     assert payload["ok"] is True
-    assert snapshot["data_quality"] == "partial"
+    assert snapshot["data_quality"] == "ok"
     assert snapshot["coverage"] == {
         "requested": EXPECTED_RATES_REQUESTED,
-        "available": EXPECTED_RATES_REQUESTED - EXPECTED_FRED_RATE_FAILURES,
+        "available": EXPECTED_RATES_REQUESTED,
     }
-    assert "missing_series" in snapshot["reason_codes"]
-    assert "missing_api_key" in snapshot["reason_codes"]
-    assert "all_series_missing" not in snapshot["reason_codes"]
-    assert len(snapshot["series_errors"]) == EXPECTED_FRED_RATE_FAILURES
-    assert snapshot["series_errors"][0]["series_key"] == "fred:DGS2"
-    assert snapshot["series_errors"][0]["code"] == "missing_api_key"
-    assert snapshot["series_errors"][0]["provider"] == "fred"
-    assert snapshot["series_errors"][0]["retryable"] is False
+    assert snapshot["missing_series"] == []
+    assert snapshot["reason_codes"] == []
+    assert snapshot["series_errors"] == []
     assert "test-key" not in result.stdout
     assert "secret" not in result.stdout
 
@@ -222,6 +253,7 @@ def test_rates_core_without_fred_api_key_exposes_missing_api_key(
 @respx.mock
 def test_rates_core_all_series_failing_is_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FRED_API_KEY", raising=False)
+    mock_fred_public_csv_http_error()
     mock_nyfed_http_error()
 
     result = CliRunner().invoke(app, ["bundle", "rates-core", "--asof", "2026-05-21"])
@@ -234,7 +266,6 @@ def test_rates_core_all_series_failing_is_unavailable(monkeypatch: pytest.Monkey
     assert snapshot["coverage"] == {"requested": EXPECTED_RATES_REQUESTED, "available": 0}
     assert snapshot["observations"] == []
     assert "missing_series" in snapshot["reason_codes"]
-    assert "missing_api_key" in snapshot["reason_codes"]
     assert "provider_http_error" in snapshot["reason_codes"]
     assert "all_series_missing" in snapshot["reason_codes"]
     assert len(snapshot["series_errors"]) == EXPECTED_RATES_REQUESTED

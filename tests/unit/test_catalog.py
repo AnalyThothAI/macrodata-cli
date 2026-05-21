@@ -52,6 +52,15 @@ def test_catalog_pins_rrp_fred_unit_as_billions() -> None:
     assert entry.unit == "billions_usd"
 
 
+def test_fred_catalog_entries_do_not_require_api_keys() -> None:
+    catalog = default_catalog()
+
+    entry = catalog.get("fred:DGS10")
+
+    assert entry.requires_api_key is False
+    assert "API key is optional" in entry.license_note
+
+
 def test_catalog_unknown_series_raises_validation_error() -> None:
     catalog = CatalogRegistry(entries=[])
 
