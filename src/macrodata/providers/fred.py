@@ -54,7 +54,16 @@ class FredSeriesProvider:
                 message="FRED observations must be a list",
                 provider="fred",
             )
-        return [self._parse_observation(dataset, item) for item in raw_observations if isinstance(item, dict)]
+        observations: list[MacroObservation] = []
+        for index, item in enumerate(raw_observations):
+            if not isinstance(item, dict):
+                raise MacrodataError(
+                    code="provider_parse_error",
+                    message=f"FRED observation row {index} for {dataset} must be an object",
+                    provider="fred",
+                )
+            observations.append(self._parse_observation(dataset, item))
+        return observations
 
     def smoke(self) -> ProviderSmokeResult:
         checked_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -81,7 +90,7 @@ class FredSeriesProvider:
     def _parse_observation(self, dataset: str, item: dict[str, Any]) -> MacroObservation:
         observed_at = str(item.get("date", "")).strip()
         raw_value = item.get("value")
-        value = None if raw_value in {None, "."} else float(str(raw_value))
+        value = self._parse_value(dataset=dataset, observed_at=observed_at, raw_value=raw_value)
         return MacroObservation(
             series_key=f"fred:{dataset}",
             provider="fred",
@@ -97,3 +106,16 @@ class FredSeriesProvider:
             data_quality="ok" if value is not None else "partial",
             provenance=[{"provider": "fred", "source_url": f"https://fred.stlouisfed.org/series/{dataset}"}],
         )
+
+    def _parse_value(self, *, dataset: str, observed_at: str, raw_value: Any) -> float | None:
+        if raw_value in {None, "."}:
+            return None
+        try:
+            return float(str(raw_value))
+        except (TypeError, ValueError) as exc:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message=f"FRED value for {dataset} on {observed_at or 'unknown date'} is not numeric",
+                retryable=False,
+                provider="fred",
+            ) from exc
