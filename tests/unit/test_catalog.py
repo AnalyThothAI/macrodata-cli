@@ -25,6 +25,14 @@ def test_catalog_show_known_series() -> None:
     assert entry.frequency == "daily"
 
 
+def test_catalog_pins_rrp_fred_unit_as_billions() -> None:
+    catalog = default_catalog()
+
+    entry = catalog.get("fred:RRPONTSYD")
+
+    assert entry.unit == "billions_usd"
+
+
 def test_catalog_unknown_series_raises_validation_error() -> None:
     catalog = CatalogRegistry(entries=[])
 

@@ -30,7 +30,7 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
     _fred("IORB", "Interest Rate on Reserve Balances", "Fed administered reserve rate.", "percent", "daily"),
     _fred("WALCL", "Fed Total Assets", "Federal Reserve balance sheet total assets.", "millions_usd", "weekly"),
     _fred("WRBWFRBL", "Reserve Balances", "Reserve balances with Federal Reserve Banks.", "millions_usd", "weekly"),
-    _fred("RRPONTSYD", "Overnight Reverse Repo", "Overnight reverse repurchase agreements.", "millions_usd", "daily"),
+    _fred("RRPONTSYD", "Overnight Reverse Repo", "Overnight reverse repurchase agreements.", "billions_usd", "daily"),
     _fred("BAMLC0A0CM", "ICE BofA US Corporate OAS", "Investment-grade corporate OAS proxy.", "percent", "daily"),
     _fred("BAMLH0A0HYM2", "ICE BofA US High Yield OAS", "High-yield OAS proxy.", "percent", "daily"),
     _fred("VIXCLS", "CBOE VIX Close", "Equity volatility proxy.", "index", "daily"),
