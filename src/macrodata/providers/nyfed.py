@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from macrodata.core.errors import MacrodataError
@@ -55,7 +55,7 @@ class NyFedMarketsProvider:
                     provider="nyfed",
                 )
             observations.append(self._parse_sofr(row))
-        return observations
+        return sorted(observations, key=lambda observation: observation.observed_at)
 
     def smoke(self) -> ProviderSmokeResult:
         checked_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -80,7 +80,7 @@ class NyFedMarketsProvider:
         )
 
     def _parse_sofr(self, row: dict[str, Any]) -> MacroObservation:
-        observed_at = str(row.get("effectiveDate", "")).strip()
+        observed_at = self._parse_effective_date(row.get("effectiveDate"))
         value = self._parse_percent_rate(observed_at=observed_at, raw_value=row.get("percentRate"))
         return MacroObservation(
             series_key="nyfed:SOFR",
@@ -97,6 +97,25 @@ class NyFedMarketsProvider:
             data_quality="ok",
             provenance=[{"provider": "nyfed", "source_url": self.sofr_url}],
         )
+
+    def _parse_effective_date(self, raw_value: Any) -> str:
+        observed_at = "" if raw_value is None else str(raw_value).strip()
+        if not observed_at:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message="NY Fed SOFR effectiveDate is missing",
+                retryable=False,
+                provider="nyfed",
+            )
+        try:
+            return date.fromisoformat(observed_at).isoformat()
+        except ValueError as exc:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message=f"NY Fed SOFR effectiveDate is invalid: {observed_at}",
+                retryable=False,
+                provider="nyfed",
+            ) from exc
 
     def _parse_percent_rate(self, *, observed_at: str, raw_value: Any) -> float:
         try:

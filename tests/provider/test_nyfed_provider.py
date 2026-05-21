@@ -69,6 +69,28 @@ def test_nyfed_latest_returns_last_rate() -> None:
 
 
 @respx.mock
+def test_nyfed_sorts_newest_first_rows_before_latest_selection() -> None:
+    respx.get(SOFR_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "refRates": [
+                    {"effectiveDate": "2026-05-20", "percentRate": "4.31"},
+                    {"effectiveDate": "2026-05-19", "percentRate": "4.30"},
+                ]
+            },
+        )
+    )
+    provider = NyFedMarketsProvider(http_client=MacrodataHttpClient())
+
+    observations = provider.get_range("SOFR", start="2026-05-19", end="2026-05-20")
+    latest = provider.get_latest("SOFR")
+
+    assert [observation.observed_at for observation in observations] == ["2026-05-19", "2026-05-20"]
+    assert latest.observed_at == "2026-05-20"
+
+
+@respx.mock
 def test_nyfed_smoke_returns_ok_result() -> None:
     respx.get(SOFR_URL).mock(
         return_value=Response(
@@ -125,6 +147,30 @@ def test_nyfed_rejects_malformed_numeric_rate() -> None:
     assert raised.value.provider == "nyfed"
     assert "SOFR" in raised.value.message
     assert "2026-05-20" in raised.value.message
+
+
+@pytest.mark.parametrize(
+    ("row", "expected_fragment"),
+    [
+        ({"percentRate": "4.31"}, "missing"),
+        ({"effectiveDate": "", "percentRate": "4.31"}, "missing"),
+        ({"effectiveDate": "05/20/2026", "percentRate": "4.31"}, "invalid"),
+    ],
+)
+@respx.mock
+def test_nyfed_rejects_missing_blank_or_malformed_effective_date(
+    row: dict[str, str], expected_fragment: str
+) -> None:
+    respx.get(SOFR_URL).mock(return_value=Response(200, json={"refRates": [row]}))
+    provider = NyFedMarketsProvider(http_client=MacrodataHttpClient())
+
+    with pytest.raises(MacrodataError) as raised:
+        provider.get_range("SOFR", start="2026-05-20", end="2026-05-20")
+
+    assert raised.value.code == "provider_parse_error"
+    assert raised.value.retryable is False
+    assert raised.value.provider == "nyfed"
+    assert expected_fragment in raised.value.message
 
 
 def test_runtime_wires_nyfed_provider() -> None:
