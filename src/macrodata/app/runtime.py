@@ -9,6 +9,7 @@ from macrodata.gateway.macrodata_gateway import MacrodataGateway
 from macrodata.providers.contracts import SeriesProvider
 from macrodata.providers.fred import FredSeriesProvider
 from macrodata.providers.nyfed import NyFedMarketsProvider
+from macrodata.providers.treasury_fiscal import TreasuryFiscalProvider
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,7 @@ def build_runtime(*, timeout_sec: float = 10.0, fred_api_key: str | None = None)
     providers: dict[str, SeriesProvider] = {
         "fred": FredSeriesProvider(http_client=http_client, api_key=fred_api_key),
         "nyfed": NyFedMarketsProvider(http_client=http_client),
+        "treasury_fiscal": TreasuryFiscalProvider(http_client=http_client),
     }
     gateway = MacrodataGateway(catalog=catalog, providers=providers)
     service = MacrodataService(gateway=gateway)
