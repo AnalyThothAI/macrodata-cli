@@ -13,6 +13,7 @@ EXPECTED_SINGLE_REQUESTED = 1
 EXPECTED_SINGLE_AVAILABLE = 1
 EXPECTED_RATES_CORE_SIZE = 9
 EXPECTED_LIQUIDITY_CORE_SIZE = 5
+EXPECTED_FRED_RATE_FAILURES = 8
 VALIDATION_EXIT_CODE = 2
 
 
@@ -36,12 +37,20 @@ def make_observation(series_key: str) -> MacroObservation:
 
 
 class FakeGateway:
-    def __init__(self, *, failed_series: set[str] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        failed_series: set[str] | None = None,
+        series_errors: dict[str, MacrodataError] | None = None,
+    ) -> None:
         self.failed_series = failed_series or set()
+        self.series_errors = series_errors or {}
         self.requested: list[str] = []
 
     def fetch_latest(self, series_key: str) -> MacroObservation:
         self.requested.append(series_key)
+        if series_key in self.series_errors:
+            raise self.series_errors[series_key]
         if series_key in self.failed_series:
             raise MacrodataError(code="no_data", message=f"missing {series_key}", provider=series_key.split(":", 1)[0])
         return make_observation(series_key)
@@ -98,7 +107,79 @@ def test_liquidity_core_bundle_marks_missing_series_partial() -> None:
     assert snapshot.missing_series == ["fred:RRPONTSYD", "treasury_fiscal:operating_cash_balance"]
     assert snapshot.source_chain == ["fred", "nyfed"]
     assert snapshot.data_quality == "partial"
-    assert snapshot.reason_codes == ["missing_series"]
+    assert snapshot.reason_codes == ["missing_series", "no_data"]
+    assert snapshot.series_errors == [
+        {
+            "series_key": "fred:RRPONTSYD",
+            "provider": "fred",
+            "code": "no_data",
+            "retryable": False,
+            "message": "missing fred:RRPONTSYD",
+        },
+        {
+            "series_key": "treasury_fiscal:operating_cash_balance",
+            "provider": "treasury_fiscal",
+            "code": "no_data",
+            "retryable": False,
+            "message": "missing treasury_fiscal:operating_cash_balance",
+        },
+    ]
+
+
+def test_rates_core_bundle_exposes_missing_api_key_diagnostics() -> None:
+    fred_errors = {
+        series_key: MacrodataError(
+            code="missing_api_key",
+            message="FRED_API_KEY is required",
+            provider="fred",
+            retryable=False,
+            exit_code=2,
+        )
+        for series_key in RATES_CORE
+        if series_key.startswith("fred:")
+    }
+    service = MacrodataService(gateway=cast(MacrodataGateway, FakeGateway(series_errors=fred_errors)))
+
+    snapshot = service.bundle("rates-core", asof="2026-05-21")
+
+    assert snapshot.data_quality == "partial"
+    assert snapshot.coverage == {
+        "requested": EXPECTED_RATES_CORE_SIZE,
+        "available": EXPECTED_RATES_CORE_SIZE - EXPECTED_FRED_RATE_FAILURES,
+    }
+    assert "missing_series" in snapshot.reason_codes
+    assert "missing_api_key" in snapshot.reason_codes
+    assert "all_series_missing" not in snapshot.reason_codes
+    assert len(snapshot.series_errors) == EXPECTED_FRED_RATE_FAILURES
+    assert snapshot.series_errors[0] == {
+        "series_key": "fred:DGS2",
+        "provider": "fred",
+        "code": "missing_api_key",
+        "retryable": False,
+        "message": "FRED_API_KEY is required",
+    }
+
+
+def test_rates_core_bundle_marks_all_series_missing_unavailable() -> None:
+    series_errors = {
+        series_key: MacrodataError(
+            code="provider_timeout",
+            message=f"{series_key} timed out",
+            provider=series_key.split(":", 1)[0],
+            retryable=True,
+        )
+        for series_key in RATES_CORE
+    }
+    service = MacrodataService(gateway=cast(MacrodataGateway, FakeGateway(series_errors=series_errors)))
+
+    snapshot = service.bundle("rates-core", asof="2026-05-21")
+
+    assert snapshot.coverage == {"requested": EXPECTED_RATES_CORE_SIZE, "available": 0}
+    assert snapshot.missing_series == RATES_CORE
+    assert snapshot.observations == []
+    assert snapshot.data_quality == "unavailable"
+    assert snapshot.reason_codes == ["missing_series", "provider_timeout", "all_series_missing"]
+    assert len(snapshot.series_errors) == EXPECTED_RATES_CORE_SIZE
 
 
 def test_unknown_bundle_raises_structured_validation_error() -> None:

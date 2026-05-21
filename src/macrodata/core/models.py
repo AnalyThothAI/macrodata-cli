@@ -59,6 +59,7 @@ class BundleSnapshot(BaseModel):
     observations: list[MacroObservation]
     coverage: dict[str, int]
     missing_series: list[str]
+    series_errors: list[dict[str, object]] = Field(default_factory=list)
     source_chain: list[str]
     data_quality: DataQuality
     reason_codes: list[str]
