@@ -11,6 +11,7 @@ from macrodata import __version__
 from macrodata.app.runtime import build_runtime
 from macrodata.core.envelope import error_envelope, success_envelope
 from macrodata.core.errors import MacrodataError
+from macrodata.surfaces.mcp_server import serve as serve_mcp
 
 app = typer.Typer(
     name="macrodata",
@@ -22,10 +23,12 @@ fetch_app = typer.Typer(help="Fetch macro observations.")
 catalog_app = typer.Typer(help="Inspect curated source catalog.")
 source_app = typer.Typer(help="Inspect data source health.")
 bundle_app = typer.Typer(help="Fetch curated macro bundles.")
+mcp_app = typer.Typer(help="Run MCP server.")
 app.add_typer(fetch_app, name="fetch")
 app.add_typer(catalog_app, name="catalog")
 app.add_typer(source_app, name="source")
 app.add_typer(bundle_app, name="bundle")
+app.add_typer(mcp_app, name="mcp")
 
 
 @app.callback()
@@ -258,6 +261,11 @@ def bundle_fetch(
         fred_api_key=fred_api_key,
         output_format=output_format,
     )
+
+
+@mcp_app.command("serve")
+def mcp_serve() -> None:
+    serve_mcp()
 
 
 def main() -> None:
