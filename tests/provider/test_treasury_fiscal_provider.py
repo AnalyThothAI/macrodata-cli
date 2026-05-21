@@ -12,7 +12,8 @@ from macrodata.providers.treasury_fiscal import TreasuryFiscalProvider
 OPERATING_CASH_BALANCE_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/dts/operating_cash_balance"
 )
-EXPECTED_BALANCE = 812345.0
+TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
+EXPECTED_BALANCE = 822275.0
 EXPECTED_LATEST_BALANCE = 2.0
 UNKNOWN_SERIES_EXIT_CODE = 2
 
@@ -26,8 +27,9 @@ def test_treasury_operating_cash_balance_parses_data_and_request_params() -> Non
                 "data": [
                     {
                         "record_date": "2026-05-20",
-                        "account_type": "Treasury General Account (TGA)",
-                        "close_today_bal": "812345",
+                        "account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE,
+                        "open_today_bal": "822275",
+                        "close_today_bal": "null",
                     }
                 ]
             },
@@ -39,7 +41,10 @@ def test_treasury_operating_cash_balance_parses_data_and_request_params() -> Non
 
     assert route.called
     request = route.calls.last.request
-    assert request.url.params["filter"] == "record_date:gte:2026-05-20,record_date:lte:2026-05-20"
+    assert request.url.params["filter"] == (
+        "account_type:eq:Treasury General Account (TGA) Closing Balance,"
+        "record_date:gte:2026-05-20,record_date:lte:2026-05-20"
+    )
     assert request.url.params["sort"] == "record_date"
     assert request.url.params["page[size]"] == "10000"
     assert observations[0].series_key == "treasury_fiscal:operating_cash_balance"
@@ -66,13 +71,13 @@ def test_treasury_sorts_range_and_latest_selects_newest_observation() -> None:
                 "data": [
                     {
                         "record_date": "2026-05-20",
-                        "account_type": "Treasury General Account (TGA)",
-                        "close_today_bal": "2",
+                        "account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE,
+                        "open_today_bal": "2",
                     },
                     {
                         "record_date": "2026-05-19",
-                        "account_type": "Treasury General Account (TGA)",
-                        "close_today_bal": "1",
+                        "account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE,
+                        "open_today_bal": "1",
                     },
                 ]
             },
@@ -89,6 +94,35 @@ def test_treasury_sorts_range_and_latest_selects_newest_observation() -> None:
 
 
 @respx.mock
+def test_treasury_latest_uses_descending_single_row_request() -> None:
+    route = respx.get(OPERATING_CASH_BALANCE_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "record_date": "2026-05-20",
+                        "account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE,
+                        "open_today_bal": "822275",
+                        "close_today_bal": "null",
+                    }
+                ]
+            },
+        )
+    )
+    provider = TreasuryFiscalProvider(http_client=MacrodataHttpClient())
+
+    latest = provider.get_latest("operating_cash_balance")
+
+    request = route.calls.last.request
+    assert request.url.params["filter"] == "account_type:eq:Treasury General Account (TGA) Closing Balance"
+    assert request.url.params["sort"] == "-record_date"
+    assert request.url.params["page[size]"] == "1"
+    assert latest.observed_at == "2026-05-20"
+    assert latest.value == EXPECTED_BALANCE
+
+
+@respx.mock
 def test_treasury_smoke_returns_ok_result() -> None:
     respx.get(OPERATING_CASH_BALANCE_URL).mock(
         return_value=Response(
@@ -97,8 +131,8 @@ def test_treasury_smoke_returns_ok_result() -> None:
                 "data": [
                     {
                         "record_date": "2026-05-20",
-                        "account_type": "Treasury General Account (TGA)",
-                        "close_today_bal": "812345",
+                        "account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE,
+                        "open_today_bal": "822275",
                     }
                 ]
             },
@@ -159,8 +193,8 @@ def test_treasury_rejects_malformed_numeric_balance() -> None:
                 "data": [
                     {
                         "record_date": "2026-05-20",
-                        "account_type": "Treasury General Account (TGA)",
-                        "close_today_bal": "bad",
+                        "account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE,
+                        "open_today_bal": "bad",
                     }
                 ]
             },
@@ -177,12 +211,49 @@ def test_treasury_rejects_malformed_numeric_balance() -> None:
     assert "2026-05-20" in raised.value.message
 
 
+@respx.mock
+def test_treasury_rejects_unexpected_account_type() -> None:
+    respx.get(OPERATING_CASH_BALANCE_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "data": [
+                    {
+                        "record_date": "2026-05-20",
+                        "account_type": "Other account",
+                        "open_today_bal": "822275",
+                    }
+                ]
+            },
+        )
+    )
+    provider = TreasuryFiscalProvider(http_client=MacrodataHttpClient())
+
+    with pytest.raises(MacrodataError) as raised:
+        provider.get_range("operating_cash_balance", start="2026-05-20", end="2026-05-20")
+
+    assert raised.value.code == "provider_parse_error"
+    assert raised.value.retryable is False
+    assert raised.value.provider == "treasury_fiscal"
+    assert TGA_CLOSING_BALANCE_ACCOUNT_TYPE in raised.value.message
+
+
 @pytest.mark.parametrize(
     ("row", "expected_fragment"),
     [
-        ({"close_today_bal": "812345"}, "missing"),
-        ({"record_date": "", "close_today_bal": "812345"}, "missing"),
-        ({"record_date": "05/20/2026", "close_today_bal": "812345"}, "invalid"),
+        ({"account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE, "open_today_bal": "822275"}, "missing"),
+        (
+            {"record_date": "", "account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE, "open_today_bal": "822275"},
+            "missing",
+        ),
+        (
+            {
+                "record_date": "05/20/2026",
+                "account_type": TGA_CLOSING_BALANCE_ACCOUNT_TYPE,
+                "open_today_bal": "822275",
+            },
+            "invalid",
+        ),
     ],
 )
 @respx.mock

@@ -7,6 +7,8 @@ from macrodata.core.errors import MacrodataError
 from macrodata.core.models import MacroObservation, ProviderSmokeResult
 from macrodata.gateway.http_client import MacrodataHttpClient
 
+TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
+
 
 class TreasuryFiscalProvider:
     provider_name = "treasury_fiscal"
@@ -18,33 +20,55 @@ class TreasuryFiscalProvider:
         self._http_client = http_client
 
     def get_latest(self, dataset: str) -> MacroObservation:
-        observations = self.get_range(dataset, start="1776-07-04", end=datetime.now(UTC).date().isoformat())
-        if not observations:
+        self._ensure_supported_dataset(dataset)
+        payload = self._http_client.get_json(
+            self.operating_cash_balance_url,
+            params={
+                "filter": f"account_type:eq:{TGA_CLOSING_BALANCE_ACCOUNT_TYPE}",
+                "sort": "-record_date",
+                "page[size]": "1",
+            },
+            provider="treasury_fiscal",
+        )
+        rows = self._parse_rows(payload)
+        if not rows:
             raise MacrodataError(
                 code="no_data",
                 message=f"Treasury Fiscal returned no data for {dataset}",
                 provider="treasury_fiscal",
                 exit_code=4,
             )
-        return observations[-1]
+        return self._parse_row(rows[0])
 
     def get_range(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
-        if dataset != "operating_cash_balance":
-            raise MacrodataError(
-                code="unknown_series",
-                message=f"Treasury Fiscal dataset is not supported: {dataset}",
-                provider="treasury_fiscal",
-                exit_code=2,
-            )
+        self._ensure_supported_dataset(dataset)
         payload = self._http_client.get_json(
             self.operating_cash_balance_url,
             params={
-                "filter": f"record_date:gte:{start},record_date:lte:{end}",
+                "filter": (
+                    f"account_type:eq:{TGA_CLOSING_BALANCE_ACCOUNT_TYPE},"
+                    f"record_date:gte:{start},record_date:lte:{end}"
+                ),
                 "sort": "record_date",
                 "page[size]": "10000",
             },
             provider="treasury_fiscal",
         )
+        rows = self._parse_rows(payload)
+        observations = [self._parse_row(row) for row in rows]
+        return sorted(observations, key=lambda observation: observation.observed_at)
+
+    def _ensure_supported_dataset(self, dataset: str) -> None:
+        if dataset == "operating_cash_balance":
+            return
+        raise MacrodataError(
+            code="unknown_series",
+            message=f"Treasury Fiscal dataset is not supported: {dataset}",
+            provider="treasury_fiscal",
+            exit_code=2,
+        )
+
+    def _parse_rows(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         rows = payload.get("data", [])
         if not isinstance(rows, list):
             raise MacrodataError(
@@ -52,7 +76,7 @@ class TreasuryFiscalProvider:
                 message="Treasury Fiscal data must be a list",
                 provider="treasury_fiscal",
             )
-        observations: list[MacroObservation] = []
+        parsed_rows: list[dict[str, Any]] = []
         for index, row in enumerate(rows):
             if not isinstance(row, dict):
                 raise MacrodataError(
@@ -60,8 +84,8 @@ class TreasuryFiscalProvider:
                     message=f"Treasury Fiscal data row {index} for operating_cash_balance must be an object",
                     provider="treasury_fiscal",
                 )
-            observations.append(self._parse_row(row))
-        return sorted(observations, key=lambda observation: observation.observed_at)
+            parsed_rows.append(row)
+        return parsed_rows
 
     def smoke(self) -> ProviderSmokeResult:
         checked_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -87,7 +111,8 @@ class TreasuryFiscalProvider:
 
     def _parse_row(self, row: dict[str, Any]) -> MacroObservation:
         observed_at = self._parse_record_date(row.get("record_date"))
-        value = self._parse_close_today_bal(observed_at=observed_at, raw_value=row.get("close_today_bal"))
+        self._assert_tga_closing_balance_account_type(row.get("account_type"))
+        value = self._parse_open_today_bal(observed_at=observed_at, raw_value=row.get("open_today_bal"))
         return MacroObservation(
             series_key="treasury_fiscal:operating_cash_balance",
             provider="treasury_fiscal",
@@ -123,7 +148,21 @@ class TreasuryFiscalProvider:
                 provider="treasury_fiscal",
             ) from exc
 
-    def _parse_close_today_bal(self, *, observed_at: str, raw_value: Any) -> float:
+    def _assert_tga_closing_balance_account_type(self, raw_value: Any) -> None:
+        account_type = "" if raw_value is None else str(raw_value).strip()
+        if account_type == TGA_CLOSING_BALANCE_ACCOUNT_TYPE:
+            return
+        raise MacrodataError(
+            code="provider_parse_error",
+            message=(
+                "Treasury Fiscal operating_cash_balance account_type must be "
+                f"{TGA_CLOSING_BALANCE_ACCOUNT_TYPE}"
+            ),
+            retryable=False,
+            provider="treasury_fiscal",
+        )
+
+    def _parse_open_today_bal(self, *, observed_at: str, raw_value: Any) -> float:
         try:
             return float(str(raw_value))
         except (TypeError, ValueError) as exc:
