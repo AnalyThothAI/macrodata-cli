@@ -123,6 +123,21 @@ def create_mcp() -> FastMCP:
         """Fetch the liquidity-core bundle for an as-of date."""
         return _bundle_tool(bundle_name="liquidity-core", command="bundle.liquidity-core", asof=asof)
 
+    @mcp.tool(annotations=EXTERNAL_READ_ONLY)
+    def bundle_macro_core(asof: str) -> dict[str, Any]:
+        """Fetch the macro-core bundle for an as-of date."""
+        return _bundle_tool(bundle_name="macro-core", command="bundle.macro-core", asof=asof)
+
+    @mcp.tool(annotations=EXTERNAL_READ_ONLY)
+    def bundle_macro_core_history(start: str, end: str) -> dict[str, Any]:
+        """Fetch date-bounded macro-core bundle history."""
+        return _bundle_history_tool(
+            bundle_name="macro-core",
+            command="bundle.macro-core-history",
+            start=start,
+            end=end,
+        )
+
     return mcp
 
 
@@ -135,6 +150,28 @@ def _bundle_tool(*, bundle_name: str, command: str, asof: str) -> dict[str, Any]
     runtime = build_runtime(fred_api_key=os.getenv("FRED_API_KEY"))
     try:
         snapshot = runtime.service.bundle(bundle_name, asof=asof)
+    except MacrodataError as exc:
+        return error_envelope(
+            command=command,
+            error=exc,
+            source_chain=[exc.provider or "bundle"],
+            latency_ms=_elapsed_ms(started),
+        )
+    return success_envelope(
+        command=command,
+        data={"snapshot": snapshot.model_dump(mode="json")},
+        source_chain=snapshot.source_chain,
+        latency_ms=_elapsed_ms(started),
+        data_quality=snapshot.data_quality,
+        reason_codes=snapshot.reason_codes,
+    )
+
+
+def _bundle_history_tool(*, bundle_name: str, command: str, start: str, end: str) -> dict[str, Any]:
+    started = time.monotonic()
+    runtime = build_runtime(fred_api_key=os.getenv("FRED_API_KEY"))
+    try:
+        snapshot = runtime.service.bundle_history(bundle_name, start=start, end=end)
     except MacrodataError as exc:
         return error_envelope(
             command=command,

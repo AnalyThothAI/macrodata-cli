@@ -113,11 +113,49 @@ Input:
 
 Output command: `bundle.liquidity-core`
 
+### `bundle_macro_core`
+
+Fetch the curated macro-core snapshot.
+
+MVP bundles fetch latest available observations; `asof` is a caller
+label/snapshot date, not a historical cutoff. Use each observation's
+`observed_at` / `source_ts` for freshness.
+
+Input:
+
+```json
+{"asof": "2026-05-21"}
+```
+
+Output command: `bundle.macro-core`
+
+### `bundle_macro_core_history`
+
+Fetch date-bounded macro-core history across the curated macro-core series.
+The response uses the standard bundle snapshot shape, with observations
+accumulated across all available series and partial diagnostics for series that
+cannot be fetched.
+
+Input:
+
+```json
+{
+  "start": "2026-05-01",
+  "end": "2026-05-21"
+}
+```
+
+Output command: `bundle.macro-core-history`
+
 ## Agent Recommendations
 
 1. Call `doctor` first.
 2. Call `catalog_list` or `catalog_show` before selecting a series.
 3. Prefer `fetch_latest` for latest-point questions.
 4. Prefer `fetch_series` for date-bounded analysis.
-5. Prefer `bundle_rates_core` and `bundle_liquidity_core` when an agent needs a
-   compact macro context packet rather than isolated series.
+5. Prefer `bundle_macro_core` when an agent needs the broadest compact macro
+   context packet rather than isolated series.
+6. Prefer `bundle_rates_core` or `bundle_liquidity_core` when the question is
+   specifically rates-only or liquidity-only.
+7. Prefer `bundle_macro_core_history` for recent-window macro context where
+   trend and coverage diagnostics matter more than a single latest point.

@@ -18,17 +18,17 @@ EXPECTED_MIN_MACRO_CORE_SIZE = 20
 VALIDATION_EXIT_CODE = 2
 
 
-def make_observation(series_key: str) -> MacroObservation:
+def make_observation(series_key: str, *, observed_at: str = "2026-05-20") -> MacroObservation:
     provider, dataset = series_key.split(":", 1)
     return MacroObservation(
         series_key=series_key,
         provider=provider,
         dataset=dataset,
-        observed_at="2026-05-20",
+        observed_at=observed_at,
         value=1.0,
         unit=None,
         frequency=None,
-        source_ts="2026-05-20",
+        source_ts=observed_at,
         realtime_start=None,
         realtime_end=None,
         latency_class="eod",
@@ -43,9 +43,11 @@ class FakeGateway:
         *,
         failed_series: set[str] | None = None,
         series_errors: dict[str, MacrodataError] | None = None,
+        range_observations: dict[str, list[MacroObservation]] | None = None,
     ) -> None:
         self.failed_series = failed_series or set()
         self.series_errors = series_errors or {}
+        self.range_observations = range_observations or {}
         self.requested: list[str] = []
 
     def fetch_latest(self, series_key: str) -> MacroObservation:
@@ -55,6 +57,14 @@ class FakeGateway:
         if series_key in self.failed_series:
             raise MacrodataError(code="no_data", message=f"missing {series_key}", provider=series_key.split(":", 1)[0])
         return make_observation(series_key)
+
+    def fetch_series(self, series_key: str, *, start: str, end: str) -> list[MacroObservation]:
+        self.requested.append(series_key)
+        if series_key in self.series_errors:
+            raise self.series_errors[series_key]
+        if series_key in self.failed_series:
+            raise MacrodataError(code="no_data", message=f"missing {series_key}", provider=series_key.split(":", 1)[0])
+        return self.range_observations.get(series_key, [make_observation(series_key)])
 
 
 def test_bundle_snapshot_model() -> None:
@@ -208,6 +218,39 @@ def test_rates_core_bundle_marks_all_series_missing_unavailable() -> None:
     assert snapshot.data_quality == "unavailable"
     assert snapshot.reason_codes == ["missing_series", "provider_timeout", "all_series_missing"]
     assert len(snapshot.series_errors) == EXPECTED_RATES_CORE_SIZE
+
+
+def test_rates_core_history_coverage_counts_available_series_not_observation_rows() -> None:
+    missing_series = {"fred:DGS10"}
+    range_observations = {
+        "fred:DGS2": [
+            make_observation("fred:DGS2", observed_at="2026-05-20"),
+            make_observation("fred:DGS2", observed_at="2026-05-21"),
+        ]
+    }
+    service = MacrodataService(
+        gateway=cast(
+            MacrodataGateway,
+            FakeGateway(failed_series=missing_series, range_observations=range_observations),
+        )
+    )
+
+    snapshot = service.bundle_history("rates-core", start="2026-05-20", end="2026-05-21")
+
+    assert snapshot.coverage == {"requested": EXPECTED_RATES_CORE_SIZE, "available": EXPECTED_RATES_CORE_SIZE - 1}
+    assert len(snapshot.observations) == EXPECTED_RATES_CORE_SIZE
+    assert snapshot.missing_series == ["fred:DGS10"]
+    assert snapshot.series_errors == [
+        {
+            "series_key": "fred:DGS10",
+            "provider": "fred",
+            "code": "no_data",
+            "retryable": False,
+            "message": "missing fred:DGS10",
+        }
+    ]
+    assert snapshot.data_quality == "partial"
+    assert snapshot.reason_codes == ["missing_series", "no_data"]
 
 
 def test_unknown_bundle_raises_structured_validation_error() -> None:

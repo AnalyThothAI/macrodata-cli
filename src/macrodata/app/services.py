@@ -86,21 +86,48 @@ class MacrodataService:
             if observation.provider not in source_chain:
                 source_chain.append(observation.provider)
 
-        data_quality = _bundle_data_quality(observations=observations, missing_series=missing_series)
-        return BundleSnapshot(
-            bundle=bundle_name,
+        return _bundle_snapshot(
+            bundle_name=bundle_name,
             asof=asof,
+            requested=requested,
             observations=observations,
-            coverage={"requested": len(requested), "available": len(observations)},
             missing_series=missing_series,
             series_errors=series_errors,
             source_chain=source_chain,
-            data_quality=data_quality,
-            reason_codes=_bundle_reason_codes(
-                observations=observations,
-                missing_series=missing_series,
-                errors=series_errors,
-            ),
+        )
+
+    def bundle_history(self, bundle: str, *, start: str, end: str) -> BundleSnapshot:
+        bundle_name = _normalize_bundle_name(bundle)
+        requested = _bundle_series(bundle_name)
+        observations: list[MacroObservation] = []
+        missing_series: list[str] = []
+        series_errors: list[dict[str, object]] = []
+        source_chain: list[str] = []
+        available_series = 0
+
+        for series_key in requested:
+            try:
+                series_observations = self.fetch_series(series_key, start=start, end=end)
+            except MacrodataError as exc:
+                missing_series.append(series_key)
+                series_errors.append(_series_error(series_key=series_key, error=exc))
+                continue
+            if series_observations:
+                available_series += 1
+            observations.extend(series_observations)
+            for observation in series_observations:
+                if observation.provider not in source_chain:
+                    source_chain.append(observation.provider)
+
+        return _bundle_snapshot(
+            bundle_name=bundle_name,
+            asof=end,
+            requested=requested,
+            observations=observations,
+            missing_series=missing_series,
+            series_errors=series_errors,
+            source_chain=source_chain,
+            available_count=available_series,
         )
 
 
@@ -127,6 +154,36 @@ def _series_error(*, series_key: str, error: MacrodataError) -> dict[str, object
         "retryable": error.retryable,
         "message": error.message,
     }
+
+
+def _bundle_snapshot(
+    *,
+    bundle_name: str,
+    asof: str,
+    requested: list[str],
+    observations: list[MacroObservation],
+    missing_series: list[str],
+    series_errors: list[dict[str, object]],
+    source_chain: list[str],
+    available_count: int | None = None,
+) -> BundleSnapshot:
+    data_quality = _bundle_data_quality(observations=observations, missing_series=missing_series)
+    available = available_count if available_count is not None else len(observations)
+    return BundleSnapshot(
+        bundle=bundle_name,
+        asof=asof,
+        observations=observations,
+        coverage={"requested": len(requested), "available": available},
+        missing_series=missing_series,
+        series_errors=series_errors,
+        source_chain=source_chain,
+        data_quality=data_quality,
+        reason_codes=_bundle_reason_codes(
+            observations=observations,
+            missing_series=missing_series,
+            errors=series_errors,
+        ),
+    )
 
 
 def _bundle_data_quality(*, observations: list[MacroObservation], missing_series: list[str]) -> DataQuality:

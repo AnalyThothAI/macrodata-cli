@@ -14,9 +14,12 @@ SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
 OPERATING_CASH_BALANCE_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/dts/operating_cash_balance"
 )
+STOOQ_URL = "https://stooq.com/q/d/l/"
+CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
 TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
 EXPECTED_RATES_REQUESTED = 9
 EXPECTED_LIQUIDITY_REQUESTED = 5
+EXPECTED_MIN_MACRO_REQUESTED = 20
 EXPECTED_FRED_RATE_FAILURES = 8
 VALIDATION_EXIT_CODE = 2
 
@@ -70,6 +73,28 @@ def mock_treasury_fiscal() -> None:
     )
 
 
+def mock_stooq() -> None:
+    respx.get(STOOQ_URL).mock(
+        return_value=Response(
+            200,
+            text="Date,Open,High,Low,Close,Volume\n2026-05-20,600.0,605.0,598.0,604.25,1000\n",
+        )
+    )
+
+
+def mock_cftc() -> None:
+    respx.get(CFTC_URL).mock(
+        return_value=Response(
+            200,
+            text=(
+                "Report_Date_as_YYYY-MM-DD,Market_and_Exchange_Names,"
+                "NonComm_Positions_Long_All,NonComm_Positions_Short_All\n"
+                "2026-05-19,S&P 500 Consolidated - CHICAGO MERCANTILE EXCHANGE,2500,1250\n"
+            ),
+        )
+    )
+
+
 @respx.mock
 def test_rates_core_bundle_command() -> None:
     mock_fred()
@@ -114,6 +139,54 @@ def test_liquidity_core_bundle_command() -> None:
     assert snapshot["source_chain"] == ["fred", "nyfed", "treasury_fiscal"]
     assert snapshot["missing_series"] == []
     assert snapshot["data_quality"] == "ok"
+
+
+@respx.mock
+def test_macro_core_bundle_command() -> None:
+    mock_fred()
+    mock_nyfed()
+    mock_treasury_fiscal()
+    mock_stooq()
+    mock_cftc()
+
+    result = CliRunner().invoke(
+        app,
+        ["bundle", "macro-core", "--asof", "2026-05-21", "--fred-api-key", "test-key"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    snapshot = payload["data"]["snapshot"]
+    assert payload["ok"] is True
+    assert snapshot["bundle"] == "macro-core"
+    assert snapshot["coverage"]["requested"] >= EXPECTED_MIN_MACRO_REQUESTED
+    assert "series_errors" in snapshot
+    assert "test-key" not in result.stdout
+
+
+@respx.mock
+def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    mock_nyfed()
+    mock_treasury_fiscal()
+    mock_stooq()
+    mock_cftc()
+
+    result = CliRunner().invoke(
+        app,
+        ["bundle", "history", "macro-core", "--start", "2026-05-01", "--end", "2026-05-21"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    snapshot = payload["data"]["snapshot"]
+    assert payload["ok"] is True
+    assert snapshot["bundle"] == "macro-core"
+    assert isinstance(snapshot["observations"], list)
+    assert snapshot["coverage"]["requested"] >= EXPECTED_MIN_MACRO_REQUESTED
+    assert "coverage" in snapshot
+    assert "missing_series" in snapshot
+    assert "series_errors" in snapshot
 
 
 @respx.mock
