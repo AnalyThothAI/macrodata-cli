@@ -32,6 +32,8 @@ def test_observation_idempotency_key() -> None:
     )
 
     assert observation.idempotency_key == "fred:DGS10:2026-05-20"
+    payload = observation.model_dump(mode="json")
+    assert payload["idempotency_key"] == "fred:DGS10:2026-05-20"
 
 
 def test_success_envelope_shape() -> None:

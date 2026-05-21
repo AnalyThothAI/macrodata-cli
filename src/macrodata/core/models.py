@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 DataQuality = Literal["ok", "stale", "partial", "unavailable"]
 
@@ -22,6 +22,7 @@ class MacroObservation(BaseModel):
     data_quality: DataQuality
     provenance: list[dict[str, Any]] = Field(default_factory=list)
 
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def idempotency_key(self) -> str:
         return f"{self.series_key}:{self.observed_at}"
