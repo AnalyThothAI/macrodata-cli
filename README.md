@@ -80,6 +80,15 @@ The bundle commands return partial diagnostics instead of hiding missing source
 data. For example, running `rates-core` without `FRED_API_KEY` can still return
 NY Fed SOFR while reporting missing FRED series in `series_errors`.
 
+MVP bundles fetch latest available observations; `asof` is a caller
+label/snapshot date, not a historical cutoff. Use each observation's
+`observed_at` / `source_ts` for freshness.
+
+`source smoke` has two layers of status: top-level `ok:true` means the command
+executed and returned a JSON envelope, while provider health is reported in
+`data.result.ok`. Agents should inspect `data.result.ok`, `error_code`, and
+`message`.
+
 ## MCP
 
 Start the MCP server with:

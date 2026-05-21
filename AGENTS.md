@@ -23,6 +23,12 @@ network requests to public data providers, but they do not mutate remote state.
   through the application service and MCP.
 - Use `macrodata bundle rates-core --asof <YYYY-MM-DD>` or
   `macrodata bundle liquidity-core --asof <YYYY-MM-DD>` for curated snapshots.
+- MVP bundles fetch latest available observations; `asof` is a caller
+  label/snapshot date, not a historical cutoff. Use each observation's
+  `observed_at` / `source_ts` for freshness.
+- For `source smoke`, top-level `ok:true` means the command executed. Provider
+  health is `data.result.ok`; inspect `data.result.ok`, `error_code`, and
+  `message`.
 - Use `macrodata mcp serve` when an MCP-compatible agent needs tools.
 
 ## Credentials

@@ -100,6 +100,41 @@ Error fields:
 }
 ```
 
+`source.smoke`:
+
+```json
+{
+  "ok": true,
+  "command": "source.smoke",
+  "request_id": "uuid",
+  "asof": "2026-05-21T00:00:00Z",
+  "data": {
+    "result": {
+      "provider": "fred",
+      "ok": false,
+      "latency_ms": 0,
+      "checked_at": "2026-05-21T00:00:00Z",
+      "sample_dataset": null,
+      "sample_source_ts": null,
+      "error_code": "missing_api_key",
+      "message": "FRED_API_KEY is required"
+    }
+  },
+  "meta": {
+    "source_chain": ["fred"],
+    "cache": "none",
+    "latency_ms": 1,
+    "data_quality": "unavailable",
+    "reason_codes": []
+  }
+}
+```
+
+For `source.smoke`, top-level envelope `ok:true` means the command executed and
+returned a provider-health result. It does not mean the provider is healthy.
+Agents must inspect `data.result.ok`, `data.result.error_code`, and
+`data.result.message`.
+
 `fetch.series`:
 
 ```json
@@ -125,11 +160,30 @@ Error fields:
 
 `bundle.*`:
 
+MVP bundles fetch latest available observations; `asof` is a caller
+label/snapshot date, not a historical cutoff. Use each observation's
+`observed_at` / `source_ts` for freshness.
+
 ```json
 {
   "snapshot": {
     "bundle": "rates-core",
     "asof": "2026-05-21",
+    "observations": [
+      {
+        "series_key": "nyfed:SOFR",
+        "provider": "nyfed",
+        "dataset": "SOFR",
+        "observed_at": "2026-05-20",
+        "value": 4.31,
+        "unit": "percent",
+        "frequency": "daily",
+        "source_ts": "2026-05-20",
+        "latency_class": "daily",
+        "data_quality": "ok",
+        "idempotency_key": "nyfed:SOFR:2026-05-20"
+      }
+    ],
     "coverage": {"requested": 9, "available": 9},
     "missing_series": [],
     "series_errors": [],
@@ -139,3 +193,6 @@ Error fields:
   }
 }
 ```
+
+`snapshot.observations` uses the same `MacroObservation` shape as
+`fetch.series`.

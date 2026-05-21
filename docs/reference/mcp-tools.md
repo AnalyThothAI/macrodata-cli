@@ -85,6 +85,10 @@ Output command: `fetch.latest`
 
 Fetch the curated rates snapshot.
 
+MVP bundles fetch latest available observations; `asof` is a caller
+label/snapshot date, not a historical cutoff. Use each observation's
+`observed_at` / `source_ts` for freshness.
+
 Input:
 
 ```json
@@ -96,6 +100,10 @@ Output command: `bundle.rates-core`
 ### `bundle_liquidity_core`
 
 Fetch the curated liquidity snapshot.
+
+MVP bundles fetch latest available observations; `asof` is a caller
+label/snapshot date, not a historical cutoff. Use each observation's
+`observed_at` / `source_ts` for freshness.
 
 Input:
 
