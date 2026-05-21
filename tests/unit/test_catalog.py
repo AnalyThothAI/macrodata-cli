@@ -15,6 +15,25 @@ def test_default_catalog_contains_rates_core_series() -> None:
     assert "treasury_fiscal:operating_cash_balance" in keys
 
 
+def test_catalog_contains_macro_core_series() -> None:
+    catalog = default_catalog()
+    keys = {entry.series_key for entry in catalog.list_entries()}
+
+    assert {
+        "fred:DGS5",
+        "fred:T10Y3M",
+        "fred:DFII10",
+        "fred:T5YIFR",
+        "fred:EFFR",
+        "fred:SP500",
+        "fred:DCOILWTICO",
+        "fred:DTWEXBGS",
+        "stooq:spy.us",
+        "stooq:hyg.us",
+        "cftc:financial_futures:sp500_net_noncommercial",
+    }.issubset(keys)
+
+
 def test_catalog_show_known_series() -> None:
     catalog = default_catalog()
 

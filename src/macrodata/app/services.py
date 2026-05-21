@@ -24,6 +24,38 @@ LIQUIDITY_CORE = [
     "treasury_fiscal:operating_cash_balance",
 ]
 
+MACRO_CORE = [
+    *LIQUIDITY_CORE,
+    "fred:DGS2",
+    "fred:DGS5",
+    "fred:DGS10",
+    "fred:DGS30",
+    "fred:T10Y2Y",
+    "fred:T10Y3M",
+    "fred:DFII10",
+    "fred:T10YIE",
+    "fred:T5YIFR",
+    "fred:DFEDTARU",
+    "fred:DFEDTARL",
+    "fred:EFFR",
+    "fred:IORB",
+    "fred:BAMLC0A0CM",
+    "fred:BAMLH0A0HYM2",
+    "fred:VIXCLS",
+    "fred:SP500",
+    "fred:DCOILWTICO",
+    "fred:DTWEXBGS",
+    "stooq:spy.us",
+    "stooq:qqq.us",
+    "stooq:iwm.us",
+    "stooq:tlt.us",
+    "stooq:hyg.us",
+    "stooq:lqd.us",
+    "stooq:gld.us",
+    "stooq:uso.us",
+    "cftc:financial_futures:sp500_net_noncommercial",
+]
+
 
 class MacrodataService:
     def __init__(self, *, gateway: MacrodataGateway) -> None:
@@ -81,6 +113,8 @@ def _bundle_series(bundle: str) -> list[str]:
         return list(RATES_CORE)
     if bundle == "liquidity-core":
         return list(LIQUIDITY_CORE)
+    if bundle == "macro-core":
+        return list(MACRO_CORE)
     raise ValidationError(code="unknown_bundle", message=f"unknown bundle: {bundle or '<blank>'}")
 
 

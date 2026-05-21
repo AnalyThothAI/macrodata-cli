@@ -4,7 +4,7 @@ from typing import cast
 
 import pytest
 
-from macrodata.app.services import LIQUIDITY_CORE, RATES_CORE, MacrodataService
+from macrodata.app.services import LIQUIDITY_CORE, MACRO_CORE, RATES_CORE, MacrodataService
 from macrodata.core.errors import MacrodataError
 from macrodata.core.models import BundleSnapshot, MacroObservation
 from macrodata.gateway.macrodata_gateway import MacrodataGateway
@@ -14,6 +14,7 @@ EXPECTED_SINGLE_AVAILABLE = 1
 EXPECTED_RATES_CORE_SIZE = 9
 EXPECTED_LIQUIDITY_CORE_SIZE = 5
 EXPECTED_FRED_RATE_FAILURES = 8
+EXPECTED_MIN_MACRO_CORE_SIZE = 20
 VALIDATION_EXIT_CODE = 2
 
 
@@ -79,6 +80,19 @@ def test_bundle_constants_include_supported_core_series() -> None:
     assert "treasury_fiscal:operating_cash_balance" in LIQUIDITY_CORE
 
 
+def test_macro_core_bundle_contains_70_point_categories() -> None:
+    assert "fred:WALCL" in MACRO_CORE
+    assert "fred:DGS10" in MACRO_CORE
+    assert "fred:IORB" in MACRO_CORE
+    assert "nyfed:SOFR" in MACRO_CORE
+    assert "fred:VIXCLS" in MACRO_CORE
+    assert "fred:BAMLH0A0HYM2" in MACRO_CORE
+    assert "stooq:spy.us" in MACRO_CORE
+    assert "stooq:hyg.us" in MACRO_CORE
+    assert "cftc:financial_futures:sp500_net_noncommercial" in MACRO_CORE
+    assert len(MACRO_CORE) >= EXPECTED_MIN_MACRO_CORE_SIZE
+
+
 def test_rates_core_bundle_collects_observations_and_source_chain() -> None:
     fake_gateway = FakeGateway()
     service = MacrodataService(gateway=cast(MacrodataGateway, fake_gateway))
@@ -92,6 +106,20 @@ def test_rates_core_bundle_collects_observations_and_source_chain() -> None:
     assert snapshot.source_chain == ["fred", "nyfed"]
     assert snapshot.data_quality == "ok"
     assert snapshot.reason_codes == []
+
+
+def test_macro_core_bundle_collects_contract_series_without_real_providers() -> None:
+    fake_gateway = FakeGateway()
+    service = MacrodataService(gateway=cast(MacrodataGateway, fake_gateway))
+
+    snapshot = service.bundle("macro-core", asof="2026-05-21")
+
+    assert fake_gateway.requested == MACRO_CORE
+    assert snapshot.bundle == "macro-core"
+    assert snapshot.coverage == {"requested": len(MACRO_CORE), "available": len(MACRO_CORE)}
+    assert snapshot.missing_series == []
+    assert snapshot.source_chain == ["fred", "nyfed", "treasury_fiscal", "stooq", "cftc"]
+    assert snapshot.data_quality == "ok"
 
 
 def test_liquidity_core_bundle_marks_missing_series_partial() -> None:
