@@ -6,9 +6,11 @@ from macrodata.app.services import MacrodataService
 from macrodata.catalog.registry import CatalogRegistry, default_catalog
 from macrodata.gateway.http_client import MacrodataHttpClient
 from macrodata.gateway.macrodata_gateway import MacrodataGateway
+from macrodata.providers.cftc import CftcProvider
 from macrodata.providers.contracts import SeriesProvider
 from macrodata.providers.fred import FredSeriesProvider
 from macrodata.providers.nyfed import NyFedMarketsProvider
+from macrodata.providers.stooq import StooqProvider
 from macrodata.providers.treasury_fiscal import TreasuryFiscalProvider
 
 
@@ -27,6 +29,8 @@ def build_runtime(*, timeout_sec: float = 10.0, fred_api_key: str | None = None)
         "fred": FredSeriesProvider(http_client=http_client, api_key=fred_api_key),
         "nyfed": NyFedMarketsProvider(http_client=http_client),
         "treasury_fiscal": TreasuryFiscalProvider(http_client=http_client),
+        "stooq": StooqProvider(http_client=http_client),
+        "cftc": CftcProvider(http_client=http_client),
     }
     gateway = MacrodataGateway(catalog=catalog, providers=providers)
     service = MacrodataService(gateway=gateway)
