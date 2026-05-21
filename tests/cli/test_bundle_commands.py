@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+from datetime import date
+from typing import Any
 
 import pytest
 import respx
@@ -15,15 +17,13 @@ SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
 OPERATING_CASH_BALANCE_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/dts/operating_cash_balance"
 )
-STOOQ_URL = "https://stooq.com/q/d/l/"
-STOOQ_QUOTE_URL = "https://stooq.com/q/l/"
 CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
 TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
 EXPECTED_RATES_REQUESTED = 9
 EXPECTED_LIQUIDITY_REQUESTED = 5
 EXPECTED_MIN_MACRO_REQUESTED = 20
-EXPECTED_MACRO_HISTORY_AVAILABLE_WITHOUT_STOOQ = 25
 VALIDATION_EXIT_CODE = 2
+YAHOO_CLOSE = 604.25
 
 
 def mock_fred() -> None:
@@ -87,31 +87,25 @@ def mock_treasury_fiscal() -> None:
     )
 
 
-def mock_stooq() -> None:
-    respx.get(STOOQ_URL).mock(
-        return_value=Response(
-            200,
-            text="Date,Open,High,Low,Close,Volume\n2026-05-20,600.0,605.0,598.0,604.25,1000\n",
-        )
-    )
+class FakeYahooTicker:
+    def __init__(self, symbol: str) -> None:
+        self.symbol = symbol
+
+    def history(self, **kwargs: Any) -> FakeYahooHistory:
+        return FakeYahooHistory([(date(2026, 5, 20), {"Close": YAHOO_CLOSE})])
 
 
-def mock_stooq_latest() -> None:
-    def respond(request: Request) -> Response:
-        symbol = str(request.url.params["s"]).upper()
-        return Response(
-            200,
-            text=(
-                "Symbol,Date,Time,Open,High,Low,Close,Volume\n"
-                f"{symbol},2026-05-20,22:00:25,600.0,605.0,598.0,604.25,1000\n"
-            ),
-        )
+class FakeYahooHistory:
+    def __init__(self, rows: list[tuple[date, dict[str, float]]]) -> None:
+        self._rows = rows
+        self.empty = not rows
 
-    respx.get(STOOQ_QUOTE_URL).mock(side_effect=respond)
+    def iterrows(self) -> list[tuple[date, dict[str, float]]]:
+        return self._rows
 
 
-def mock_stooq_history_requires_key() -> None:
-    respx.get(STOOQ_URL).mock(return_value=Response(200, text="Get your apikey: enter the captcha code."))
+def mock_yahoo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("macrodata.providers.yahoo.yf.Ticker", FakeYahooTicker)
 
 
 def mock_cftc() -> None:
@@ -174,11 +168,11 @@ def test_liquidity_core_bundle_command() -> None:
 
 
 @respx.mock
-def test_macro_core_bundle_command() -> None:
+def test_macro_core_bundle_command(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_fred()
     mock_nyfed()
     mock_treasury_fiscal()
-    mock_stooq_latest()
+    mock_yahoo(monkeypatch)
     mock_cftc()
 
     result = CliRunner().invoke(
@@ -192,6 +186,8 @@ def test_macro_core_bundle_command() -> None:
     assert payload["ok"] is True
     assert snapshot["bundle"] == "macro-core"
     assert snapshot["coverage"]["requested"] >= EXPECTED_MIN_MACRO_REQUESTED
+    assert "yahoo" in snapshot["source_chain"]
+    assert "stooq" not in snapshot["source_chain"]
     assert "series_errors" in snapshot
     assert "test-key" not in result.stdout
 
@@ -202,7 +198,7 @@ def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> N
     mock_fred_public_csv()
     mock_nyfed()
     mock_treasury_fiscal()
-    mock_stooq_history_requires_key()
+    mock_yahoo(monkeypatch)
     mock_cftc()
 
     result = CliRunner().invoke(
@@ -217,11 +213,13 @@ def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> N
     assert snapshot["bundle"] == "macro-core"
     assert isinstance(snapshot["observations"], list)
     assert snapshot["coverage"]["requested"] >= EXPECTED_MIN_MACRO_REQUESTED
-    assert snapshot["coverage"]["available"] == EXPECTED_MACRO_HISTORY_AVAILABLE_WITHOUT_STOOQ
+    assert snapshot["coverage"]["available"] == snapshot["coverage"]["requested"]
+    assert "yahoo" in snapshot["source_chain"]
+    assert "stooq" not in snapshot["source_chain"]
     assert "coverage" in snapshot
     assert "missing_series" in snapshot
     assert "series_errors" in snapshot
-    assert "missing_api_key" in snapshot["reason_codes"]
+    assert snapshot["reason_codes"] == []
 
 
 @respx.mock

@@ -22,19 +22,22 @@ def _fred(dataset: str, name: str, description: str, unit: str | None, frequency
     )
 
 
-def _stooq(symbol: str, name: str, description: str) -> SourceCatalogEntry:
+def _yahoo(symbol: str, name: str, description: str) -> SourceCatalogEntry:
     return SourceCatalogEntry(
-        series_key=f"stooq:{symbol}",
+        series_key=f"yahoo:{symbol}",
         name=name,
-        provider="stooq",
+        provider="yahoo",
         dataset=symbol,
         description=description,
         unit="price",
         frequency="daily",
-        latency_class="eod",
+        latency_class="daily",
         requires_api_key=False,
-        source_url=f"https://stooq.com/q/d/l/?s={symbol}&i=d",
-        license_note="Stooq public data terms apply.",
+        source_url=f"https://finance.yahoo.com/quote/{symbol}",
+        license_note=(
+            "Yahoo Finance data is accessed through yfinance, an unofficial library not affiliated with Yahoo; "
+            "Yahoo API usage is intended for personal use."
+        ),
     )
 
 
@@ -101,14 +104,17 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
         "index",
         "daily",
     ),
-    _stooq("spy.us", "SPDR S&P 500 ETF Trust", "S&P 500 ETF price proxy."),
-    _stooq("qqq.us", "Invesco QQQ Trust", "Nasdaq 100 ETF price proxy."),
-    _stooq("iwm.us", "iShares Russell 2000 ETF", "US small-cap ETF price proxy."),
-    _stooq("tlt.us", "iShares 20+ Year Treasury Bond ETF", "Long-duration Treasury ETF price proxy."),
-    _stooq("hyg.us", "iShares iBoxx High Yield Corporate Bond ETF", "High-yield credit ETF price proxy."),
-    _stooq("lqd.us", "iShares iBoxx Investment Grade Corporate Bond ETF", "Investment-grade credit ETF price proxy."),
-    _stooq("gld.us", "SPDR Gold Shares", "Gold ETF price proxy."),
-    _stooq("uso.us", "United States Oil Fund", "Oil ETF price proxy."),
+    _yahoo("SPY", "SPDR S&P 500 ETF Trust", "S&P 500 ETF price proxy."),
+    _yahoo("QQQ", "Invesco QQQ Trust", "Nasdaq 100 ETF price proxy."),
+    _yahoo("IWM", "iShares Russell 2000 ETF", "US small-cap ETF price proxy."),
+    _yahoo("TLT", "iShares 20+ Year Treasury Bond ETF", "Long-duration Treasury ETF price proxy."),
+    _yahoo("HYG", "iShares iBoxx High Yield Corporate Bond ETF", "High-yield credit ETF price proxy."),
+    _yahoo("LQD", "iShares iBoxx Investment Grade Corporate Bond ETF", "Investment-grade credit ETF price proxy."),
+    _yahoo("GLD", "SPDR Gold Shares", "Gold ETF price proxy."),
+    _yahoo("USO", "United States Oil Fund", "Oil ETF price proxy."),
+    _yahoo("DX-Y.NYB", "US Dollar Index", "US Dollar Index price proxy."),
+    _yahoo("BTC-USD", "Bitcoin USD", "Bitcoin spot USD price proxy."),
+    _yahoo("ETH-USD", "Ether USD", "Ether spot USD price proxy."),
     _cftc(
         "financial_futures:sp500_net_noncommercial",
         "S&P 500 Net Noncommercial Positioning",

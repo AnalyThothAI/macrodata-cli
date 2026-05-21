@@ -17,6 +17,7 @@ export FRED_API_KEY="..."
 uv run macrodata fetch series fred:DGS10 --start 2026-05-20 --end 2026-05-20
 uv run macrodata bundle rates-core --asof 2026-05-21
 uv run macrodata bundle liquidity-core --asof 2026-05-21
+uv run macrodata bundle macro-core --asof 2026-05-21
 uv run macrodata mcp serve
 ```
 
@@ -43,8 +44,9 @@ Most CLI commands that touch FRED also accept `--fred-api-key`, but the
 environment variable is preferred for agent use. Secrets are never printed; the
 `doctor` command only reports whether a FRED key is configured.
 
-NY Fed Markets SOFR and Treasury Fiscal Daily Treasury Statement operating cash
-balance are public sources and do not require an API key.
+NY Fed Markets SOFR, Treasury Fiscal Daily Treasury Statement operating cash
+balance, Yahoo Finance daily prices, and CFTC Commitment of Traders data are
+public sources and do not require an API key.
 
 ## Providers
 
@@ -55,10 +57,13 @@ Current public providers:
 - `nyfed`: NY Fed Markets SOFR endpoint. No API key.
 - `treasury_fiscal`: Treasury Fiscal Data Daily Treasury Statement operating
   cash balance. No API key.
+- `yahoo`: Yahoo Finance daily adjusted price series through yfinance. No API
+  key. yfinance is unofficial, not affiliated with Yahoo, and Yahoo API usage
+  is intended for personal use.
+- `cftc`: CFTC public Commitment of Traders positioning proxies. No API key.
 
 The catalog also contains liquidity-oriented NY Fed `RRP` and `SRF` metadata for
-future provider coverage. In this MVP, the implemented NY Fed fetch path is
-`nyfed:SOFR`.
+source discovery. The implemented NY Fed fetch path is `nyfed:SOFR`.
 
 ## CLI Commands
 
@@ -69,10 +74,15 @@ uv run macrodata catalog show fred:DGS10
 uv run macrodata source smoke --provider fred
 uv run macrodata source smoke --provider nyfed
 uv run macrodata source smoke --provider treasury_fiscal
+uv run macrodata source smoke --provider yahoo
+uv run macrodata source smoke --provider cftc
 uv run macrodata fetch series fred:DGS10 --start 2026-05-20 --end 2026-05-20
+uv run macrodata fetch series yahoo:SPY --start 2026-05-20 --end 2026-05-21
 uv run macrodata bundle rates-core --asof 2026-05-21
 uv run macrodata bundle liquidity-core --asof 2026-05-21
+uv run macrodata bundle macro-core --asof 2026-05-21
 uv run macrodata bundle fetch rates-core --asof 2026-05-21
+uv run macrodata bundle history macro-core --start 2026-05-01 --end 2026-05-21
 uv run macrodata mcp serve
 ```
 
@@ -106,6 +116,8 @@ Current MCP tools:
 - `fetch_latest`
 - `bundle_rates_core`
 - `bundle_liquidity_core`
+- `bundle_macro_core`
+- `bundle_macro_core_history`
 
 MCP tools return the same structured result envelope used by the CLI. FRED
 credentials are read from `FRED_API_KEY`; MCP tools do not accept API keys as

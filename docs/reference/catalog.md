@@ -13,7 +13,7 @@ Examples:
 
 - `fred:DGS10`
 - `nyfed:SOFR`
-- `stooq:spy.us`
+- `yahoo:SPY`
 - `cftc:financial_futures:sp500_net_noncommercial`
 - `treasury_fiscal:operating_cash_balance`
 
@@ -33,11 +33,15 @@ Current implemented providers:
 - `nyfed`: NY Fed Markets SOFR. No API key.
 - `treasury_fiscal`: Treasury Fiscal Daily Treasury Statement operating cash
   balance. No API key.
+- `yahoo`: Yahoo Finance daily adjusted price series through yfinance. No API
+  key. yfinance is unofficial, not affiliated with Yahoo, and Yahoo API usage
+  is intended for personal use.
+- `cftc`: CFTC public Commitment of Traders positioning proxies. No API key.
 
 Cataloged providers pending runtime fetch implementation:
 
-- `stooq`: Stooq public daily price proxies. No API key.
-- `cftc`: CFTC public Commitment of Traders positioning proxies. No API key.
+- `nyfed:RRP` and `nyfed:SRF` are cataloged for source discovery but are not
+  fetched by current bundle commands.
 
 ## Curated Catalog
 
@@ -68,20 +72,22 @@ Cataloged providers pending runtime fetch implementation:
 | `nyfed:SOFR` | Secured Overnight Financing Rate | percent | daily | no | implemented |
 | `nyfed:RRP` | Overnight Reverse Repo Operations | millions_usd | daily | no | catalog metadata only |
 | `nyfed:SRF` | Standing Repo Facility Operations | millions_usd | daily | no | catalog metadata only |
-| `stooq:spy.us` | SPDR S&P 500 ETF Trust | price | daily | no | metadata only |
-| `stooq:qqq.us` | Invesco QQQ Trust | price | daily | no | metadata only |
-| `stooq:iwm.us` | iShares Russell 2000 ETF | price | daily | no | metadata only |
-| `stooq:tlt.us` | iShares 20+ Year Treasury Bond ETF | price | daily | no | metadata only |
-| `stooq:hyg.us` | iShares iBoxx High Yield Corporate Bond ETF | price | daily | no | metadata only |
-| `stooq:lqd.us` | iShares iBoxx Investment Grade Corporate Bond ETF | price | daily | no | metadata only |
-| `stooq:gld.us` | SPDR Gold Shares | price | daily | no | metadata only |
-| `stooq:uso.us` | United States Oil Fund | price | daily | no | metadata only |
-| `cftc:financial_futures:sp500_net_noncommercial` | S&P 500 Net Noncommercial Positioning | contracts | weekly | no | metadata only |
+| `yahoo:SPY` | SPDR S&P 500 ETF Trust | price | daily | no | implemented |
+| `yahoo:QQQ` | Invesco QQQ Trust | price | daily | no | implemented |
+| `yahoo:IWM` | iShares Russell 2000 ETF | price | daily | no | implemented |
+| `yahoo:TLT` | iShares 20+ Year Treasury Bond ETF | price | daily | no | implemented |
+| `yahoo:HYG` | iShares iBoxx High Yield Corporate Bond ETF | price | daily | no | implemented |
+| `yahoo:LQD` | iShares iBoxx Investment Grade Corporate Bond ETF | price | daily | no | implemented |
+| `yahoo:GLD` | SPDR Gold Shares | price | daily | no | implemented |
+| `yahoo:USO` | United States Oil Fund | price | daily | no | implemented |
+| `yahoo:DX-Y.NYB` | US Dollar Index | price | daily | no | implemented |
+| `yahoo:BTC-USD` | Bitcoin USD | price | daily | no | implemented |
+| `yahoo:ETH-USD` | Ether USD | price | daily | no | implemented |
+| `cftc:financial_futures:sp500_net_noncommercial` | S&P 500 Net Noncommercial Positioning | contracts | weekly | no | implemented |
 | `treasury_fiscal:operating_cash_balance` | Treasury Operating Cash Balance | millions_usd | daily | no | implemented |
 
-`metadata only` / `catalog metadata only` means the entry exists for source
-discovery and future bundle coverage, but the current provider layer does not
-fetch it yet.
+Yahoo Finance price series use yfinance daily history with adjusted daily close
+as the canonical value. Intraday Yahoo series are not part of this catalog.
 
 ## Bundles
 
@@ -126,14 +132,17 @@ fetch it yet.
 - `fred:SP500`
 - `fred:DCOILWTICO`
 - `fred:DTWEXBGS`
-- `stooq:spy.us`
-- `stooq:qqq.us`
-- `stooq:iwm.us`
-- `stooq:tlt.us`
-- `stooq:hyg.us`
-- `stooq:lqd.us`
-- `stooq:gld.us`
-- `stooq:uso.us`
+- `yahoo:SPY`
+- `yahoo:QQQ`
+- `yahoo:IWM`
+- `yahoo:TLT`
+- `yahoo:HYG`
+- `yahoo:LQD`
+- `yahoo:GLD`
+- `yahoo:USO`
+- `yahoo:DX-Y.NYB`
+- `yahoo:BTC-USD`
+- `yahoo:ETH-USD`
 - `cftc:financial_futures:sp500_net_noncommercial`
 
 Bundles return `coverage`, `missing_series`, and `series_errors` so agents can

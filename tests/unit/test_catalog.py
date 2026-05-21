@@ -28,10 +28,27 @@ def test_catalog_contains_macro_core_series() -> None:
         "fred:SP500",
         "fred:DCOILWTICO",
         "fred:DTWEXBGS",
-        "stooq:spy.us",
-        "stooq:hyg.us",
+        "yahoo:SPY",
+        "yahoo:HYG",
+        "yahoo:BTC-USD",
         "cftc:financial_futures:sp500_net_noncommercial",
     }.issubset(keys)
+    assert "stooq:spy.us" not in keys
+
+
+def test_yahoo_catalog_entry_documents_unofficial_personal_use_provenance() -> None:
+    catalog = default_catalog()
+
+    entry = catalog.get("yahoo:SPY")
+
+    assert entry.provider == "yahoo"
+    assert entry.dataset == "SPY"
+    assert entry.unit == "price"
+    assert entry.frequency == "daily"
+    assert entry.source_url == "https://finance.yahoo.com/quote/SPY"
+    assert "Yahoo Finance" in entry.license_note
+    assert "unofficial" in entry.license_note
+    assert "personal use" in entry.license_note
 
 
 def test_catalog_show_known_series() -> None:

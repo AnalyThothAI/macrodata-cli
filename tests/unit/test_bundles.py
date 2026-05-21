@@ -97,8 +97,10 @@ def test_macro_core_bundle_contains_70_point_categories() -> None:
     assert "nyfed:SOFR" in MACRO_CORE
     assert "fred:VIXCLS" in MACRO_CORE
     assert "fred:BAMLH0A0HYM2" in MACRO_CORE
-    assert "stooq:spy.us" in MACRO_CORE
-    assert "stooq:hyg.us" in MACRO_CORE
+    assert "yahoo:SPY" in MACRO_CORE
+    assert "yahoo:HYG" in MACRO_CORE
+    assert "yahoo:BTC-USD" in MACRO_CORE
+    assert "stooq:spy.us" not in MACRO_CORE
     assert "cftc:financial_futures:sp500_net_noncommercial" in MACRO_CORE
     assert len(MACRO_CORE) >= EXPECTED_MIN_MACRO_CORE_SIZE
 
@@ -128,7 +130,8 @@ def test_macro_core_bundle_collects_contract_series_without_real_providers() -> 
     assert snapshot.bundle == "macro-core"
     assert snapshot.coverage == {"requested": len(MACRO_CORE), "available": len(MACRO_CORE)}
     assert snapshot.missing_series == []
-    assert snapshot.source_chain == ["fred", "nyfed", "treasury_fiscal", "stooq", "cftc"]
+    assert snapshot.source_chain == ["fred", "nyfed", "treasury_fiscal", "yahoo", "cftc"]
+    assert "stooq" not in snapshot.source_chain
     assert snapshot.data_quality == "ok"
 
 
