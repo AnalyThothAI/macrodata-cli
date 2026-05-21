@@ -12,10 +12,13 @@ class MacrodataGateway:
         self._catalog = catalog
         self._providers = providers
 
+    def provider(self, provider_name: str) -> SeriesProvider | None:
+        return self._providers.get(provider_name)
+
     def fetch_series(self, series_key: str, *, start: str, end: str) -> list[MacroObservation]:
         parsed = parse_series_key(series_key)
         entry = self._catalog.get(parsed.value)
-        provider = self._providers.get(parsed.provider)
+        provider = self.provider(parsed.provider)
         if provider is None:
             raise ValidationError(code="unknown_provider", message=f"unknown provider: {parsed.provider}")
         return [
@@ -26,7 +29,7 @@ class MacrodataGateway:
     def fetch_latest(self, series_key: str) -> MacroObservation:
         parsed = parse_series_key(series_key)
         entry = self._catalog.get(parsed.value)
-        provider = self._providers.get(parsed.provider)
+        provider = self.provider(parsed.provider)
         if provider is None:
             raise ValidationError(code="unknown_provider", message=f"unknown provider: {parsed.provider}")
         return self._enrich_observation(provider.get_latest(parsed.dataset), entry)
