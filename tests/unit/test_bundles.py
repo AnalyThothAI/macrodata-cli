@@ -4,7 +4,17 @@ from typing import cast
 
 import pytest
 
-from macrodata.app.services import LIQUIDITY_CORE, MACRO_CORE, RATES_CORE, MacrodataService
+from macrodata.app.services import (
+    ASSETS_CORE,
+    CREDIT_CORE,
+    ECONOMY_CORE,
+    LIQUIDITY_CORE,
+    MACRO_CORE,
+    RATES_CORE,
+    RATES_MARKET_CORE,
+    VOLATILITY_CORE,
+    MacrodataService,
+)
 from macrodata.core.errors import MacrodataError
 from macrodata.core.models import BundleSnapshot, MacroObservation
 from macrodata.gateway.macrodata_gateway import MacrodataGateway
@@ -12,9 +22,14 @@ from macrodata.gateway.macrodata_gateway import MacrodataGateway
 EXPECTED_SINGLE_REQUESTED = 1
 EXPECTED_SINGLE_AVAILABLE = 1
 EXPECTED_RATES_CORE_SIZE = 9
-EXPECTED_LIQUIDITY_CORE_SIZE = 5
+EXPECTED_RATES_MARKET_CORE_SIZE = 28
+EXPECTED_LIQUIDITY_CORE_SIZE = 6
+EXPECTED_ECONOMY_CORE_SIZE = 20
+EXPECTED_VOLATILITY_CORE_SIZE = 8
+EXPECTED_CREDIT_CORE_SIZE = 17
+EXPECTED_ASSETS_CORE_SIZE = 36
 EXPECTED_FRED_RATE_FAILURES = 8
-EXPECTED_MIN_MACRO_CORE_SIZE = 20
+EXPECTED_MIN_MACRO_CORE_SIZE = 90
 VALIDATION_EXIT_CODE = 2
 
 
@@ -86,11 +101,48 @@ def test_bundle_snapshot_model() -> None:
 def test_bundle_constants_include_supported_core_series() -> None:
     assert len(RATES_CORE) == EXPECTED_RATES_CORE_SIZE
     assert "nyfed:SOFR" in RATES_CORE
+    assert len(RATES_MARKET_CORE) == EXPECTED_RATES_MARKET_CORE_SIZE
+    assert "fred:DFF" in RATES_MARKET_CORE
+    assert "fred:DGS3MO" in RATES_MARKET_CORE
+    assert "fred:DGS20" in RATES_MARKET_CORE
+    assert "fred:DFII5" in RATES_MARKET_CORE
+    assert "fred:MICH" in RATES_MARKET_CORE
+    assert "nyfed:SOFR" in RATES_MARKET_CORE
+    assert "fred:SOFR30DAYAVG" in RATES_MARKET_CORE
     assert len(LIQUIDITY_CORE) == EXPECTED_LIQUIDITY_CORE_SIZE
+    assert "nyfed:RRP" in LIQUIDITY_CORE
     assert "treasury_fiscal:operating_cash_balance" in LIQUIDITY_CORE
+    assert len(ECONOMY_CORE) == EXPECTED_ECONOMY_CORE_SIZE
+    assert "fred:GDP" in ECONOMY_CORE
+    assert "fred:PAYEMS" in ECONOMY_CORE
+    assert "fred:ICSA" in ECONOMY_CORE
+    assert "fred:PCEPI" in ECONOMY_CORE
+    assert "fred:UMCSENT" in ECONOMY_CORE
+    assert len(VOLATILITY_CORE) == EXPECTED_VOLATILITY_CORE_SIZE
+    assert "fred:VIXCLS" in VOLATILITY_CORE
+    assert "fred:VXVCLS" in VOLATILITY_CORE
+    assert "fred:VXNCLS" in VOLATILITY_CORE
+    assert len(CREDIT_CORE) == EXPECTED_CREDIT_CORE_SIZE
+    assert "fred:BAMLC0A4CBBB" in CREDIT_CORE
+    assert "fred:BAMLH0A3HYC" in CREDIT_CORE
+    assert "fred:STLFSI4" in CREDIT_CORE
+    assert "yahoo:JNK" in CREDIT_CORE
+    assert len(ASSETS_CORE) == EXPECTED_ASSETS_CORE_SIZE
+    assert "fred:NASDAQCOM" in ASSETS_CORE
+    assert "fred:DEXUSEU" in ASSETS_CORE
+    assert "yahoo:DIA" in ASSETS_CORE
+    assert "yahoo:EEM" in ASSETS_CORE
+    assert "yahoo:UUP" in ASSETS_CORE
 
 
 def test_macro_core_bundle_contains_70_point_categories() -> None:
+    assert set(RATES_CORE).issubset(MACRO_CORE)
+    assert set(RATES_MARKET_CORE).issubset(MACRO_CORE)
+    assert set(LIQUIDITY_CORE).issubset(MACRO_CORE)
+    assert set(ECONOMY_CORE).issubset(MACRO_CORE)
+    assert set(VOLATILITY_CORE).issubset(MACRO_CORE)
+    assert set(CREDIT_CORE).issubset(MACRO_CORE)
+    assert set(ASSETS_CORE).issubset(MACRO_CORE)
     assert "fred:WALCL" in MACRO_CORE
     assert "fred:DGS10" in MACRO_CORE
     assert "fred:IORB" in MACRO_CORE
@@ -101,8 +153,37 @@ def test_macro_core_bundle_contains_70_point_categories() -> None:
     assert "yahoo:HYG" in MACRO_CORE
     assert "yahoo:BTC-USD" in MACRO_CORE
     assert "stooq:spy.us" not in MACRO_CORE
+    assert "fred:WILL5000INDFC" not in MACRO_CORE
     assert "cftc:financial_futures:sp500_net_noncommercial" in MACRO_CORE
+    assert len(MACRO_CORE) == len(set(MACRO_CORE))
     assert len(MACRO_CORE) >= EXPECTED_MIN_MACRO_CORE_SIZE
+
+
+@pytest.mark.parametrize(
+    ("bundle_name", "expected_series", "expected_source_chain"),
+    [
+        ("rates-market-core", RATES_MARKET_CORE, ["fred", "nyfed"]),
+        ("economy-core", ECONOMY_CORE, ["fred"]),
+        ("volatility-core", VOLATILITY_CORE, ["fred", "yahoo"]),
+        ("credit-core", CREDIT_CORE, ["fred", "yahoo"]),
+        ("assets-core", ASSETS_CORE, ["fred", "yahoo"]),
+    ],
+)
+def test_focused_macro_terminal_bundles_collect_observations(
+    bundle_name: str,
+    expected_series: list[str],
+    expected_source_chain: list[str],
+) -> None:
+    fake_gateway = FakeGateway()
+    service = MacrodataService(gateway=cast(MacrodataGateway, fake_gateway))
+
+    snapshot = service.bundle(bundle_name, asof="2026-05-21")
+
+    assert fake_gateway.requested == expected_series
+    assert snapshot.bundle == bundle_name
+    assert snapshot.coverage == {"requested": len(expected_series), "available": len(expected_series)}
+    assert snapshot.source_chain == expected_source_chain
+    assert snapshot.data_quality == "ok"
 
 
 def test_rates_core_bundle_collects_observations_and_source_chain() -> None:

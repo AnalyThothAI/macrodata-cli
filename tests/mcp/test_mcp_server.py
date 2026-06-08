@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 
 from macrodata.core.models import BundleSnapshot, MacroObservation
 from macrodata.surfaces import cli, mcp_server
-from macrodata.surfaces.mcp_server import create_mcp
+from macrodata.surfaces.mcp_server import create_mcp, fred_api_key_from_env, fred_api_key_source
 
 
 async def _tool_names(server: FastMCP) -> set[str]:
@@ -65,7 +65,36 @@ def test_doctor_tool_does_not_expose_api_key_value(monkeypatch: pytest.MonkeyPat
 
     assert payload["ok"] is True
     assert payload["data"]["fred_api_key_configured"] is True
+    assert payload["data"]["fred_api_key_source"] == "FRED_API_KEY"
     assert "secret-test-key" not in str(payload)
+
+
+def test_doctor_tool_reports_finance_fred_alias_source_without_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    monkeypatch.setenv("FINANCE_FRED_API_KEY", "secret-test-key")
+    server = create_mcp()
+
+    payload = asyncio.run(_call_tool(server, "doctor", {}))
+
+    assert payload["ok"] is True
+    assert payload["data"]["fred_api_key_configured"] is True
+    assert payload["data"]["fred_api_key_source"] == "FINANCE_FRED_API_KEY"
+    assert "secret-test-key" not in str(payload)
+
+
+def test_fred_api_key_helper_priority(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FRED_API_KEY", "secret-test-key")
+    monkeypatch.setenv("FINANCE_FRED_API_KEY", "secret-test-key-alias")
+
+    assert fred_api_key_from_env("secret-test-key-explicit") == "secret-test-key-explicit"
+    assert fred_api_key_source("secret-test-key-explicit") == "explicit"
+    assert fred_api_key_from_env() == "secret-test-key"
+    assert fred_api_key_source() == "FRED_API_KEY"
+
+    monkeypatch.delenv("FRED_API_KEY")
+
+    assert fred_api_key_from_env() == "secret-test-key-alias"
+    assert fred_api_key_source() == "FINANCE_FRED_API_KEY"
 
 
 def test_bundle_macro_core_tool_returns_structured_envelope(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -100,7 +129,7 @@ def test_mcp_serve_cli_invokes_server(monkeypatch: pytest.MonkeyPatch) -> None:
         nonlocal called
         called = True
 
-    monkeypatch.setattr(cli, "serve_mcp", fake_serve)
+    monkeypatch.setattr(cli, "serve", fake_serve)
 
     result = CliRunner().invoke(cli.app, ["mcp", "serve"])
 

@@ -20,20 +20,94 @@ def test_catalog_contains_macro_core_series() -> None:
     keys = {entry.series_key for entry in catalog.list_entries()}
 
     assert {
+        "fred:DFF",
+        "fred:FEDFUNDS",
+        "fred:DGS3MO",
         "fred:DGS5",
+        "fred:DGS7",
+        "fred:DGS20",
         "fred:T10Y3M",
+        "fred:DFII5",
         "fred:DFII10",
+        "fred:DFII30",
+        "fred:T5YIE",
         "fred:T5YIFR",
         "fred:EFFR",
+        "fred:MICH",
+        "fred:GDP",
+        "fred:GDPC1",
+        "fred:PAYEMS",
+        "fred:UNRATE",
+        "fred:ICSA",
+        "fred:JTSJOL",
+        "fred:CPIAUCSL",
+        "fred:CPILFESL",
+        "fred:PCEPI",
+        "fred:PCEPILFE",
+        "fred:RSAFS",
+        "fred:INDPRO",
+        "fred:HOUST",
+        "fred:UMCSENT",
+        "fred:PSAVERT",
+        "fred:VXVCLS",
+        "fred:VXNCLS",
+        "fred:BAMLC0A4CBBB",
+        "fred:BAMLH0A1HYBB",
+        "fred:BAMLH0A2HYB",
+        "fred:BAMLH0A3HYC",
+        "fred:STLFSI4",
+        "fred:NFCI",
         "fred:SP500",
+        "fred:NASDAQCOM",
         "fred:DCOILWTICO",
+        "fred:DCOILBRENTEU",
+        "fred:DHHNGSP",
         "fred:DTWEXBGS",
+        "fred:DEXUSEU",
+        "fred:DEXJPUS",
+        "fred:DEXCHUS",
+        "fred:DEXUSUK",
         "yahoo:SPY",
+        "yahoo:DIA",
+        "yahoo:EFA",
+        "yahoo:EEM",
+        "yahoo:SHY",
+        "yahoo:IEF",
+        "yahoo:TIP",
+        "yahoo:BND",
         "yahoo:HYG",
+        "yahoo:JNK",
+        "yahoo:SLV",
+        "yahoo:UNG",
+        "yahoo:CPER",
+        "yahoo:UUP",
+        "yahoo:FXE",
+        "yahoo:FXY",
         "yahoo:BTC-USD",
         "cftc:financial_futures:sp500_net_noncommercial",
     }.issubset(keys)
     assert "stooq:spy.us" not in keys
+    assert "fred:WILL5000INDFC" not in keys
+
+
+def test_catalog_documents_public_macro_terminal_proxies() -> None:
+    catalog = default_catalog()
+
+    vix_3m = catalog.get("fred:VXVCLS")
+    bbb_oas = catalog.get("fred:BAMLC0A4CBBB")
+    jobless_claims = catalog.get("fred:ICSA")
+    credit_proxy = catalog.get("yahoo:JNK")
+
+    assert vix_3m.name == "CBOE S&P 500 3-Month Volatility Index"
+    assert vix_3m.unit == "index"
+    assert vix_3m.frequency == "daily"
+    assert "term structure" in vix_3m.description
+    assert bbb_oas.unit == "percent"
+    assert bbb_oas.frequency == "daily"
+    assert "BBB" in bbb_oas.name
+    assert jobless_claims.frequency == "weekly"
+    assert credit_proxy.provider == "yahoo"
+    assert credit_proxy.dataset == "JNK"
 
 
 def test_yahoo_catalog_entry_documents_unofficial_personal_use_provenance() -> None:

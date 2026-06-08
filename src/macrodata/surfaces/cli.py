@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from typing import Any
 
@@ -11,7 +10,11 @@ from macrodata import __version__
 from macrodata.app.runtime import build_runtime
 from macrodata.core.envelope import error_envelope, success_envelope
 from macrodata.core.errors import MacrodataError
-from macrodata.surfaces.mcp_server import serve as serve_mcp
+from macrodata.surfaces.mcp_server import (
+    fred_api_key_from_env,
+    fred_api_key_source,
+    serve,
+)
 
 app = typer.Typer(
     name="macrodata",
@@ -47,13 +50,15 @@ def emit(payload: dict[str, Any], *, pretty: bool = False) -> None:
 
 @app.command()
 def doctor(output_format: str = typer.Option("json", "--format")) -> None:
+    source = fred_api_key_source()
     emit(
         success_envelope(
             command="doctor",
             data={
                 "package": "macrodata-cli",
                 "version": __version__,
-                "fred_api_key_configured": bool(os.getenv("FRED_API_KEY")),
+                "fred_api_key_configured": source is not None,
+                "fred_api_key_source": source,
             },
             source_chain=["local"],
             latency_ms=0,
@@ -71,7 +76,7 @@ def fetch_series(
     output_format: str = typer.Option("json", "--format"),
 ) -> None:
     started = time.monotonic()
-    runtime = build_runtime(fred_api_key=fred_api_key or os.getenv("FRED_API_KEY"))
+    runtime = build_runtime(fred_api_key=fred_api_key_from_env(fred_api_key))
     try:
         observations = runtime.service.fetch_series(series_key, start=start, end=end)
     except MacrodataError as exc:
@@ -151,7 +156,7 @@ def source_smoke(
 ) -> None:
     started = time.monotonic()
     provider_name = provider.strip().lower()
-    runtime = build_runtime(fred_api_key=fred_api_key or os.getenv("FRED_API_KEY"))
+    runtime = build_runtime(fred_api_key=fred_api_key_from_env(fred_api_key))
     selected = runtime.gateway.provider(provider_name)
     if selected is None:
         exc = MacrodataError(
@@ -192,7 +197,7 @@ def _run_bundle_command(
     output_format: str,
 ) -> None:
     started = time.monotonic()
-    runtime = build_runtime(fred_api_key=fred_api_key or os.getenv("FRED_API_KEY"))
+    runtime = build_runtime(fred_api_key=fred_api_key_from_env(fred_api_key))
     try:
         snapshot = runtime.service.bundle(bundle_name, asof=asof)
     except MacrodataError as exc:
@@ -229,7 +234,7 @@ def _run_bundle_history_command(
     output_format: str,
 ) -> None:
     started = time.monotonic()
-    runtime = build_runtime(fred_api_key=fred_api_key or os.getenv("FRED_API_KEY"))
+    runtime = build_runtime(fred_api_key=fred_api_key_from_env(fred_api_key))
     try:
         snapshot = runtime.service.bundle_history(bundle_name, start=start, end=end)
     except MacrodataError as exc:
@@ -336,7 +341,7 @@ def bundle_history_macro_core(
 
 @mcp_app.command("serve")
 def mcp_serve() -> None:
-    serve_mcp()
+    serve()
 
 
 def main() -> None:

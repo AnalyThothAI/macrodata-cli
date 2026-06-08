@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
@@ -14,6 +14,26 @@ from macrodata.core.errors import MacrodataError
 
 LOCAL_READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 EXTERNAL_READ_ONLY = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True)
+FredApiKeySource = Literal["FRED_API_KEY", "FINANCE_FRED_API_KEY", "explicit"] | None
+
+
+def fred_api_key_source(explicit: str | None = None) -> FredApiKeySource:
+    if explicit:
+        return "explicit"
+    if os.getenv("FRED_API_KEY"):
+        return "FRED_API_KEY"
+    if os.getenv("FINANCE_FRED_API_KEY"):
+        return "FINANCE_FRED_API_KEY"
+    return None
+
+
+def fred_api_key_from_env(explicit: str | None = None) -> str | None:
+    source = fred_api_key_source(explicit)
+    if source == "explicit":
+        return explicit
+    if source is None:
+        return None
+    return os.getenv(source)
 
 
 def create_mcp() -> FastMCP:
@@ -23,12 +43,14 @@ def create_mcp() -> FastMCP:
     def doctor() -> dict[str, Any]:
         """Return package health and redacted credential availability."""
         started = time.monotonic()
+        source = fred_api_key_source()
         return success_envelope(
             command="doctor",
             data={
                 "package": "macrodata-cli",
                 "version": __version__,
-                "fred_api_key_configured": bool(os.getenv("FRED_API_KEY")),
+                "fred_api_key_configured": source is not None,
+                "fred_api_key_source": source,
             },
             source_chain=["local"],
             latency_ms=_elapsed_ms(started),
@@ -71,7 +93,7 @@ def create_mcp() -> FastMCP:
     def fetch_series(series_key: str, start: str, end: str) -> dict[str, Any]:
         """Fetch a date-bounded macro series as structured observations."""
         started = time.monotonic()
-        runtime = build_runtime(fred_api_key=os.getenv("FRED_API_KEY"))
+        runtime = build_runtime(fred_api_key=fred_api_key_from_env())
         try:
             observations = runtime.service.fetch_series(series_key, start=start, end=end)
         except MacrodataError as exc:
@@ -95,7 +117,7 @@ def create_mcp() -> FastMCP:
     def fetch_latest(series_key: str) -> dict[str, Any]:
         """Fetch the latest available observation for one macro series."""
         started = time.monotonic()
-        runtime = build_runtime(fred_api_key=os.getenv("FRED_API_KEY"))
+        runtime = build_runtime(fred_api_key=fred_api_key_from_env())
         try:
             observation = runtime.service.fetch_latest(series_key)
         except MacrodataError as exc:
@@ -147,7 +169,7 @@ def serve() -> None:
 
 def _bundle_tool(*, bundle_name: str, command: str, asof: str) -> dict[str, Any]:
     started = time.monotonic()
-    runtime = build_runtime(fred_api_key=os.getenv("FRED_API_KEY"))
+    runtime = build_runtime(fred_api_key=fred_api_key_from_env())
     try:
         snapshot = runtime.service.bundle(bundle_name, asof=asof)
     except MacrodataError as exc:
@@ -169,7 +191,7 @@ def _bundle_tool(*, bundle_name: str, command: str, asof: str) -> dict[str, Any]
 
 def _bundle_history_tool(*, bundle_name: str, command: str, start: str, end: str) -> dict[str, Any]:
     started = time.monotonic()
-    runtime = build_runtime(fred_api_key=os.getenv("FRED_API_KEY"))
+    runtime = build_runtime(fred_api_key=fred_api_key_from_env())
     try:
         snapshot = runtime.service.bundle_history(bundle_name, start=start, end=end)
     except MacrodataError as exc:

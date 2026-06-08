@@ -14,13 +14,14 @@ from macrodata.surfaces.cli import app
 FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
 FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
+RRP_URL = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
 OPERATING_CASH_BALANCE_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/dts/operating_cash_balance"
 )
 CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
 TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
 EXPECTED_RATES_REQUESTED = 9
-EXPECTED_LIQUIDITY_REQUESTED = 5
+EXPECTED_LIQUIDITY_REQUESTED = 6
 EXPECTED_MIN_MACRO_REQUESTED = 20
 VALIDATION_EXIT_CODE = 2
 YAHOO_CLOSE = 604.25
@@ -61,6 +62,23 @@ def mock_nyfed() -> None:
         return_value=Response(
             200,
             json={"refRates": [{"effectiveDate": "2026-05-20", "percentRate": "4.31"}]},
+        )
+    )
+    respx.get(RRP_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "repo": {
+                    "operations": [
+                        {
+                            "operationId": "RP 052026 27",
+                            "operationDate": "2026-05-20",
+                            "operationType": "Reverse Repo",
+                            "totalAmtAccepted": 24867000000,
+                        }
+                    ]
+                }
+            },
         )
     )
 

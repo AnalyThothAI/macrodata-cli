@@ -11,6 +11,7 @@ from macrodata.gateway.http_client import MacrodataHttpClient
 class NyFedMarketsProvider:
     provider_name = "nyfed"
     sofr_url = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
+    reverse_repo_url = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
 
     def __init__(self, *, http_client: MacrodataHttpClient) -> None:
         self._http_client = http_client
@@ -27,13 +28,18 @@ class NyFedMarketsProvider:
         return observations[-1]
 
     def get_range(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
-        if dataset != "SOFR":
-            raise MacrodataError(
-                code="unknown_series",
-                message=f"NY Fed dataset is not supported: {dataset}",
-                provider="nyfed",
-                exit_code=2,
-            )
+        if dataset == "SOFR":
+            return self._get_sofr_range(start=start, end=end)
+        if dataset == "RRP":
+            return self._get_reverse_repo_range(start=start, end=end)
+        raise MacrodataError(
+            code="unknown_series",
+            message=f"NY Fed dataset is not supported: {dataset}",
+            provider="nyfed",
+            exit_code=2,
+        )
+
+    def _get_sofr_range(self, *, start: str, end: str) -> list[MacroObservation]:
         payload = self._http_client.get_json(
             self.sofr_url,
             params={"startDate": start, "endDate": end, "type": "rate"},
@@ -55,6 +61,30 @@ class NyFedMarketsProvider:
                     provider="nyfed",
                 )
             observations.append(self._parse_sofr(row))
+        return sorted(observations, key=lambda observation: observation.observed_at)
+
+    def _get_reverse_repo_range(self, *, start: str, end: str) -> list[MacroObservation]:
+        payload = self._http_client.get_json(
+            self.reverse_repo_url,
+            params={"startDate": start, "endDate": end},
+            provider="nyfed",
+        )
+        rows = payload.get("repo", {}).get("operations", []) if isinstance(payload.get("repo"), dict) else []
+        if not isinstance(rows, list):
+            raise MacrodataError(
+                code="provider_parse_error",
+                message="NY Fed reverse repo operations must be a list",
+                provider="nyfed",
+            )
+        observations: list[MacroObservation] = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise MacrodataError(
+                    code="provider_parse_error",
+                    message=f"NY Fed reverse repo row {index} must be an object",
+                    provider="nyfed",
+                )
+            observations.append(self._parse_reverse_repo(row))
         return sorted(observations, key=lambda observation: observation.observed_at)
 
     def smoke(self) -> ProviderSmokeResult:
@@ -98,6 +128,29 @@ class NyFedMarketsProvider:
             provenance=[{"provider": "nyfed", "source_url": self.sofr_url}],
         )
 
+    def _parse_reverse_repo(self, row: dict[str, Any]) -> MacroObservation:
+        observed_at = self._parse_operation_date(row.get("operationDate"))
+        value = self._parse_amount_millions(
+            dataset="RRP",
+            observed_at=observed_at,
+            raw_value=row.get("totalAmtAccepted"),
+        )
+        return MacroObservation(
+            series_key="nyfed:RRP",
+            provider="nyfed",
+            dataset="RRP",
+            observed_at=observed_at,
+            value=value,
+            unit="millions_usd",
+            frequency="daily",
+            source_ts=observed_at,
+            realtime_start=None,
+            realtime_end=None,
+            latency_class="daily",
+            data_quality="ok",
+            provenance=[{"provider": "nyfed", "source_url": self.reverse_repo_url}],
+        )
+
     def _parse_effective_date(self, raw_value: Any) -> str:
         observed_at = "" if raw_value is None else str(raw_value).strip()
         if not observed_at:
@@ -117,6 +170,25 @@ class NyFedMarketsProvider:
                 provider="nyfed",
             ) from exc
 
+    def _parse_operation_date(self, raw_value: Any) -> str:
+        observed_at = "" if raw_value is None else str(raw_value).strip()
+        if not observed_at:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message="NY Fed reverse repo operationDate is missing",
+                retryable=False,
+                provider="nyfed",
+            )
+        try:
+            return date.fromisoformat(observed_at).isoformat()
+        except ValueError as exc:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message=f"NY Fed reverse repo operationDate is invalid: {observed_at}",
+                retryable=False,
+                provider="nyfed",
+            ) from exc
+
     def _parse_percent_rate(self, *, observed_at: str, raw_value: Any) -> float:
         try:
             return float(str(raw_value))
@@ -124,6 +196,17 @@ class NyFedMarketsProvider:
             raise MacrodataError(
                 code="provider_parse_error",
                 message=f"NY Fed SOFR value on {observed_at or 'unknown date'} is not numeric",
+                retryable=False,
+                provider="nyfed",
+            ) from exc
+
+    def _parse_amount_millions(self, *, dataset: str, observed_at: str, raw_value: Any) -> float:
+        try:
+            return float(str(raw_value)) / 1_000_000.0
+        except (TypeError, ValueError) as exc:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message=f"NY Fed {dataset} value on {observed_at or 'unknown date'} is not numeric",
                 retryable=False,
                 provider="nyfed",
             ) from exc

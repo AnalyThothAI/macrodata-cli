@@ -10,7 +10,9 @@ from macrodata.gateway.http_client import MacrodataHttpClient
 from macrodata.providers.nyfed import NyFedMarketsProvider
 
 SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
+RRP_URL = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
 EXPECTED_SOFR = 4.31
+EXPECTED_RRP_MILLIONS = 3281.0
 UNKNOWN_SERIES_EXIT_CODE = 2
 
 
@@ -69,6 +71,40 @@ def test_nyfed_latest_returns_last_rate() -> None:
 
 
 @respx.mock
+def test_nyfed_reverse_repo_parses_operations() -> None:
+    route = respx.get(RRP_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "repo": {
+                    "operations": [
+                        {
+                            "operationId": "RP 052126 27",
+                            "operationDate": "2026-05-21",
+                            "operationType": "Reverse Repo",
+                            "totalAmtAccepted": 3281000000,
+                        }
+                    ]
+                }
+            },
+        )
+    )
+    provider = NyFedMarketsProvider(http_client=MacrodataHttpClient())
+
+    observations = provider.get_range("RRP", start="2026-05-21", end="2026-05-21")
+
+    assert route.called
+    assert observations[0].series_key == "nyfed:RRP"
+    assert observations[0].provider == "nyfed"
+    assert observations[0].dataset == "RRP"
+    assert observations[0].observed_at == "2026-05-21"
+    assert observations[0].value == EXPECTED_RRP_MILLIONS
+    assert observations[0].unit == "millions_usd"
+    assert observations[0].frequency == "daily"
+    assert observations[0].provenance == [{"provider": "nyfed", "source_url": RRP_URL}]
+
+
+@respx.mock
 def test_nyfed_sorts_newest_first_rows_before_latest_selection() -> None:
     respx.get(SOFR_URL).mock(
         return_value=Response(
@@ -112,12 +148,12 @@ def test_nyfed_rejects_unsupported_dataset_structured() -> None:
     provider = NyFedMarketsProvider(http_client=MacrodataHttpClient())
 
     with pytest.raises(MacrodataError) as raised:
-        provider.get_range("RRP", start="2026-05-20", end="2026-05-20")
+        provider.get_range("SRF", start="2026-05-20", end="2026-05-20")
 
     assert raised.value.code == "unknown_series"
     assert raised.value.provider == "nyfed"
     assert raised.value.exit_code == UNKNOWN_SERIES_EXIT_CODE
-    assert "RRP" in raised.value.message
+    assert "SRF" in raised.value.message
 
 
 @respx.mock

@@ -4,6 +4,11 @@ from macrodata.core.errors import MacrodataError, ValidationError
 from macrodata.core.models import BundleSnapshot, DataQuality, MacroObservation
 from macrodata.gateway.macrodata_gateway import MacrodataGateway
 
+
+def _unique(series: list[str]) -> list[str]:
+    return list(dict.fromkeys(series))
+
+
 RATES_CORE = [
     "fred:DGS2",
     "fred:DGS10",
@@ -20,44 +25,160 @@ LIQUIDITY_CORE = [
     "fred:WALCL",
     "fred:WRBWFRBL",
     "fred:RRPONTSYD",
+    "nyfed:RRP",
     "nyfed:SOFR",
     "treasury_fiscal:operating_cash_balance",
 ]
 
-MACRO_CORE = [
-    *LIQUIDITY_CORE,
-    "fred:DGS2",
-    "fred:DGS5",
-    "fred:DGS10",
-    "fred:DGS30",
-    "fred:T10Y2Y",
-    "fred:T10Y3M",
-    "fred:DFII10",
-    "fred:T10YIE",
-    "fred:T5YIFR",
-    "fred:DFEDTARU",
-    "fred:DFEDTARL",
-    "fred:EFFR",
-    "fred:IORB",
-    "fred:BAMLC0A0CM",
-    "fred:BAMLH0A0HYM2",
+
+RATES_MARKET_CORE = _unique(
+    [
+        "fred:DFF",
+        "fred:FEDFUNDS",
+        "fred:SOFR30DAYAVG",
+        "fred:EFFR",
+        "fred:DFEDTARU",
+        "fred:DFEDTARL",
+        "fred:IORB",
+        "nyfed:SOFR",
+        "fred:DGS1MO",
+        "fred:DGS3MO",
+        "fred:DGS6MO",
+        "fred:DGS1",
+        "fred:DGS2",
+        "fred:DGS3",
+        "fred:DGS5",
+        "fred:DGS7",
+        "fred:DGS10",
+        "fred:DGS20",
+        "fred:DGS30",
+        "fred:T10Y2Y",
+        "fred:T10Y3M",
+        "fred:DFII5",
+        "fred:DFII10",
+        "fred:DFII30",
+        "fred:T5YIE",
+        "fred:T10YIE",
+        "fred:T5YIFR",
+        "fred:MICH",
+    ]
+)
+
+ECONOMY_CORE = [
+    "fred:GDP",
+    "fred:GDPC1",
+    "fred:GDPDEF",
+    "fred:PAYEMS",
+    "fred:UNRATE",
+    "fred:CIVPART",
+    "fred:ICSA",
+    "fred:JTSJOL",
+    "fred:CPIAUCSL",
+    "fred:CPILFESL",
+    "fred:PPIACO",
+    "fred:PCEPI",
+    "fred:PCEPILFE",
+    "fred:PCE",
+    "fred:PCEC96",
+    "fred:RSAFS",
+    "fred:INDPRO",
+    "fred:HOUST",
+    "fred:UMCSENT",
+    "fred:PSAVERT",
+]
+
+VOLATILITY_CORE = [
     "fred:VIXCLS",
+    "fred:VXVCLS",
+    "fred:VXNCLS",
+    "fred:RVXCLS",
+    "fred:GVZCLS",
+    "fred:OVXCLS",
+    "fred:EVZCLS",
+    "yahoo:VIXY",
+]
+
+CREDIT_CORE = [
+    "fred:BAMLC0A0CM",
+    "fred:BAMLC0A1CAAA",
+    "fred:BAMLC0A2CAA",
+    "fred:BAMLC0A3CA",
+    "fred:BAMLC0A4CBBB",
+    "fred:BAMLH0A0HYM2",
+    "fred:BAMLH0A1HYBB",
+    "fred:BAMLH0A2HYB",
+    "fred:BAMLH0A3HYC",
+    "fred:BAMLC0A0CMEY",
+    "fred:BAMLH0A0HYM2EY",
+    "fred:STLFSI4",
+    "fred:NFCI",
+    "fred:ANFCI",
+    "yahoo:HYG",
+    "yahoo:JNK",
+    "yahoo:LQD",
+]
+
+ASSETS_CORE = [
     "fred:SP500",
+    "fred:NASDAQCOM",
     "fred:DCOILWTICO",
+    "fred:DCOILBRENTEU",
+    "fred:DHHNGSP",
     "fred:DTWEXBGS",
+    "fred:DEXUSEU",
+    "fred:DEXJPUS",
+    "fred:DEXCHUS",
+    "fred:DEXUSUK",
     "yahoo:SPY",
     "yahoo:QQQ",
+    "yahoo:DIA",
     "yahoo:IWM",
+    "yahoo:EFA",
+    "yahoo:EEM",
     "yahoo:TLT",
-    "yahoo:HYG",
-    "yahoo:LQD",
+    "yahoo:IEF",
+    "yahoo:SHY",
+    "yahoo:TIP",
+    "yahoo:BND",
     "yahoo:GLD",
+    "yahoo:SLV",
+    "yahoo:GC=F",
     "yahoo:USO",
+    "yahoo:CL=F",
+    "yahoo:UNG",
+    "yahoo:CPER",
+    "yahoo:UUP",
+    "yahoo:FXE",
+    "yahoo:FXY",
     "yahoo:DX-Y.NYB",
+    "yahoo:EURUSD=X",
+    "yahoo:USDJPY=X",
     "yahoo:BTC-USD",
     "yahoo:ETH-USD",
-    "cftc:financial_futures:sp500_net_noncommercial",
 ]
+
+MACRO_CORE = _unique(
+    [
+        *LIQUIDITY_CORE,
+        *RATES_MARKET_CORE,
+        *ECONOMY_CORE,
+        *VOLATILITY_CORE,
+        *CREDIT_CORE,
+        *ASSETS_CORE,
+        "cftc:financial_futures:sp500_net_noncommercial",
+    ]
+)
+
+BUNDLES = {
+    "rates-core": RATES_CORE,
+    "rates-market-core": RATES_MARKET_CORE,
+    "liquidity-core": LIQUIDITY_CORE,
+    "economy-core": ECONOMY_CORE,
+    "volatility-core": VOLATILITY_CORE,
+    "credit-core": CREDIT_CORE,
+    "assets-core": ASSETS_CORE,
+    "macro-core": MACRO_CORE,
+}
 
 
 class MacrodataService:
@@ -139,12 +260,9 @@ def _normalize_bundle_name(bundle: str) -> str:
 
 
 def _bundle_series(bundle: str) -> list[str]:
-    if bundle == "rates-core":
-        return list(RATES_CORE)
-    if bundle == "liquidity-core":
-        return list(LIQUIDITY_CORE)
-    if bundle == "macro-core":
-        return list(MACRO_CORE)
+    series = BUNDLES.get(bundle)
+    if series is not None:
+        return list(series)
     raise ValidationError(code="unknown_bundle", message=f"unknown bundle: {bundle or '<blank>'}")
 
 
