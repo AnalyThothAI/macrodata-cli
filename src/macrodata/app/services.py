@@ -26,6 +26,7 @@ LIQUIDITY_CORE = [
     "fred:WRBWFRBL",
     "fred:RRPONTSYD",
     "nyfed:RRP",
+    "nyfed:SRF",
     "nyfed:SOFR",
     "treasury_fiscal:operating_cash_balance",
 ]
