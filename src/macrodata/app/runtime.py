@@ -22,7 +22,12 @@ class MacrodataRuntime:
     service: MacrodataService
 
 
-def build_runtime(*, timeout_sec: float = 10.0, fred_api_key: str | None = None) -> MacrodataRuntime:
+def build_runtime(
+    *,
+    timeout_sec: float = 10.0,
+    fred_api_key: str | None = None,
+    bundle_max_workers: int = 8,
+) -> MacrodataRuntime:
     catalog = default_catalog()
     http_client = MacrodataHttpClient(timeout_sec=timeout_sec)
     providers: dict[str, SeriesProvider] = {
@@ -33,5 +38,5 @@ def build_runtime(*, timeout_sec: float = 10.0, fred_api_key: str | None = None)
         "cftc": CftcProvider(http_client=http_client),
     }
     gateway = MacrodataGateway(catalog=catalog, providers=providers)
-    service = MacrodataService(gateway=gateway)
+    service = MacrodataService(gateway=gateway, max_workers=bundle_max_workers)
     return MacrodataRuntime(catalog=catalog, http_client=http_client, gateway=gateway, service=service)

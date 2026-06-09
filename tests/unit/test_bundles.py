@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from typing import cast
 
 import pytest
@@ -80,6 +82,27 @@ class FakeGateway:
         if series_key in self.failed_series:
             raise MacrodataError(code="no_data", message=f"missing {series_key}", provider=series_key.split(":", 1)[0])
         return self.range_observations.get(series_key, [make_observation(series_key)])
+
+
+class DelayedRangeGateway(FakeGateway):
+    def __init__(self, *, delay_seconds: float) -> None:
+        super().__init__()
+        self.delay_seconds = delay_seconds
+        self._lock = threading.Lock()
+        self._in_flight = 0
+        self.max_in_flight = 0
+
+    def fetch_series(self, series_key: str, *, start: str, end: str) -> list[MacroObservation]:
+        with self._lock:
+            self.requested.append(series_key)
+            self._in_flight += 1
+            self.max_in_flight = max(self.max_in_flight, self._in_flight)
+        try:
+            time.sleep(self.delay_seconds)
+            return [make_observation(series_key)]
+        finally:
+            with self._lock:
+                self._in_flight -= 1
 
 
 def test_bundle_snapshot_model() -> None:
@@ -342,6 +365,18 @@ def test_rates_core_history_coverage_counts_available_series_not_observation_row
     ]
     assert snapshot.data_quality == "partial"
     assert snapshot.reason_codes == ["missing_series", "no_data"]
+
+
+def test_bundle_history_can_fetch_series_concurrently_for_runtime_sync() -> None:
+    fake_gateway = DelayedRangeGateway(delay_seconds=0.02)
+    service = MacrodataService(gateway=cast(MacrodataGateway, fake_gateway), max_workers=4)
+
+    snapshot = service.bundle_history("rates-core", start="2026-05-20", end="2026-05-21")
+
+    assert fake_gateway.max_in_flight > 1
+    assert [observation.series_key for observation in snapshot.observations] == RATES_CORE
+    assert snapshot.coverage == {"requested": EXPECTED_RATES_CORE_SIZE, "available": EXPECTED_RATES_CORE_SIZE}
+    assert snapshot.source_chain == ["fred", "nyfed"]
 
 
 def test_unknown_bundle_raises_structured_validation_error() -> None:

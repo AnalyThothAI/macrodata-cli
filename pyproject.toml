@@ -1,6 +1,6 @@
 [project]
 name = "macrodata-cli"
-version = "0.1.7"
+version = "0.1.8"
 description = "Agent-friendly macro data CLI, SDK, and MCP server."
 readme = "README.md"
 requires-python = ">=3.12"

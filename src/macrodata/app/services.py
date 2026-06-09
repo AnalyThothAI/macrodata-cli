@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+
 from macrodata.core.errors import MacrodataError, ValidationError
 from macrodata.core.models import BundleSnapshot, DataQuality, MacroObservation
 from macrodata.gateway.macrodata_gateway import MacrodataGateway
@@ -194,9 +198,17 @@ BUNDLES = {
 }
 
 
+@dataclass(frozen=True)
+class _SeriesFetchResult:
+    series_key: str
+    observations: list[MacroObservation]
+    error: MacrodataError | None = None
+
+
 class MacrodataService:
-    def __init__(self, *, gateway: MacrodataGateway) -> None:
+    def __init__(self, *, gateway: MacrodataGateway, max_workers: int = 1) -> None:
         self._gateway = gateway
+        self._max_workers = max(1, int(max_workers))
 
     def fetch_series(self, series_key: str, *, start: str, end: str) -> list[MacroObservation]:
         return self._gateway.fetch_series(series_key, start=start, end=end)
@@ -207,21 +219,11 @@ class MacrodataService:
     def bundle(self, bundle: str, *, asof: str) -> BundleSnapshot:
         bundle_name = _normalize_bundle_name(bundle)
         requested = _bundle_series(bundle_name)
-        observations: list[MacroObservation] = []
-        missing_series: list[str] = []
-        series_errors: list[dict[str, object]] = []
-        source_chain: list[str] = []
-
-        for series_key in requested:
-            try:
-                observation = self.fetch_latest(series_key)
-            except MacrodataError as exc:
-                missing_series.append(series_key)
-                series_errors.append(_series_error(series_key=series_key, error=exc))
-                continue
-            observations.append(observation)
-            if observation.provider not in source_chain:
-                source_chain.append(observation.provider)
+        observations, missing_series, series_errors, source_chain, _ = self._collect_bundle_results(
+            requested,
+            lambda series_key: [self.fetch_latest(series_key)],
+            count_available_series=False,
+        )
 
         return _bundle_snapshot(
             bundle_name=bundle_name,
@@ -236,25 +238,11 @@ class MacrodataService:
     def bundle_history(self, bundle: str, *, start: str, end: str) -> BundleSnapshot:
         bundle_name = _normalize_bundle_name(bundle)
         requested = _bundle_series(bundle_name)
-        observations: list[MacroObservation] = []
-        missing_series: list[str] = []
-        series_errors: list[dict[str, object]] = []
-        source_chain: list[str] = []
-        available_series = 0
-
-        for series_key in requested:
-            try:
-                series_observations = self.fetch_series(series_key, start=start, end=end)
-            except MacrodataError as exc:
-                missing_series.append(series_key)
-                series_errors.append(_series_error(series_key=series_key, error=exc))
-                continue
-            if series_observations:
-                available_series += 1
-            observations.extend(series_observations)
-            for observation in series_observations:
-                if observation.provider not in source_chain:
-                    source_chain.append(observation.provider)
+        observations, missing_series, series_errors, source_chain, available_series = self._collect_bundle_results(
+            requested,
+            lambda series_key: self.fetch_series(series_key, start=start, end=end),
+            count_available_series=True,
+        )
 
         return _bundle_snapshot(
             bundle_name=bundle_name,
@@ -266,6 +254,70 @@ class MacrodataService:
             source_chain=source_chain,
             available_count=available_series,
         )
+
+    def _collect_bundle_results(
+        self,
+        requested: list[str],
+        fetch: Callable[[str], list[MacroObservation]],
+        *,
+        count_available_series: bool,
+    ) -> tuple[list[MacroObservation], list[str], list[dict[str, object]], list[str], int | None]:
+        results = self._fetch_bundle_series(requested, fetch)
+        observations: list[MacroObservation] = []
+        missing_series: list[str] = []
+        series_errors: list[dict[str, object]] = []
+        source_chain: list[str] = []
+        available_series = 0
+
+        for result in results:
+            if result.error is not None:
+                missing_series.append(result.series_key)
+                series_errors.append(_series_error(series_key=result.series_key, error=result.error))
+                continue
+            if count_available_series and result.observations:
+                available_series += 1
+            observations.extend(result.observations)
+            for observation in result.observations:
+                if observation.provider not in source_chain:
+                    source_chain.append(observation.provider)
+
+        return (
+            observations,
+            missing_series,
+            series_errors,
+            source_chain,
+            available_series if count_available_series else None,
+        )
+
+    def _fetch_bundle_series(
+        self,
+        requested: list[str],
+        fetch: Callable[[str], list[MacroObservation]],
+    ) -> list[_SeriesFetchResult]:
+        if self._max_workers <= 1 or len(requested) <= 1:
+            return [_fetch_one_series(series_key, fetch) for series_key in requested]
+
+        results: list[_SeriesFetchResult | None] = [None] * len(requested)
+        worker_count = min(self._max_workers, len(requested))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {
+                executor.submit(_fetch_one_series, series_key, fetch): index
+                for index, series_key in enumerate(requested)
+            }
+            for future in as_completed(futures):
+                results[futures[future]] = future.result()
+
+        return [result for result in results if result is not None]
+
+
+def _fetch_one_series(
+    series_key: str,
+    fetch: Callable[[str], list[MacroObservation]],
+) -> _SeriesFetchResult:
+    try:
+        return _SeriesFetchResult(series_key=series_key, observations=fetch(series_key))
+    except MacrodataError as exc:
+        return _SeriesFetchResult(series_key=series_key, observations=[], error=exc)
 
 
 def _normalize_bundle_name(bundle: str) -> str:
