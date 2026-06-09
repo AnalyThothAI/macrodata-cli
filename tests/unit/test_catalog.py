@@ -110,6 +110,34 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     assert credit_proxy.dataset == "JNK"
 
 
+def test_catalog_contains_timsun_asset_coverage_extensions() -> None:
+    catalog = default_catalog()
+    keys = {entry.series_key for entry in catalog.list_entries()}
+
+    assert {
+        "yahoo:^GSPC",
+        "yahoo:^NDX",
+        "yahoo:^DJI",
+        "yahoo:^RUT",
+        "yahoo:SI=F",
+        "yahoo:NG=F",
+        "yahoo:HG=F",
+        "yahoo:SMH",
+        "yahoo:SOXX",
+        "yahoo:GBPUSD=X",
+        "yahoo:USDCNY=X",
+        "yahoo:USDKRW=X",
+    }.issubset(keys)
+    assert catalog.get("yahoo:^GSPC").name == "S&P 500 Index"
+    assert catalog.get("yahoo:USDCNY=X").description == "US dollar to Chinese yuan spot FX proxy."
+
+
+def test_catalog_documents_nyfed_srf_results_endpoint() -> None:
+    catalog = default_catalog()
+
+    assert catalog.get("nyfed:SRF").source_url == "https://markets.newyorkfed.org/api/rp/results/search.json"
+
+
 def test_yahoo_catalog_entry_documents_unofficial_personal_use_provenance() -> None:
     catalog = default_catalog()
 

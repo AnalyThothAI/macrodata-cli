@@ -27,7 +27,7 @@ EXPECTED_LIQUIDITY_CORE_SIZE = 6
 EXPECTED_ECONOMY_CORE_SIZE = 20
 EXPECTED_VOLATILITY_CORE_SIZE = 8
 EXPECTED_CREDIT_CORE_SIZE = 17
-EXPECTED_ASSETS_CORE_SIZE = 36
+EXPECTED_ASSETS_CORE_SIZE = 48
 EXPECTED_FRED_RATE_FAILURES = 8
 EXPECTED_MIN_MACRO_CORE_SIZE = 90
 VALIDATION_EXIT_CODE = 2
@@ -133,6 +133,11 @@ def test_bundle_constants_include_supported_core_series() -> None:
     assert "yahoo:DIA" in ASSETS_CORE
     assert "yahoo:EEM" in ASSETS_CORE
     assert "yahoo:UUP" in ASSETS_CORE
+    assert "yahoo:^GSPC" in ASSETS_CORE
+    assert "yahoo:^NDX" in ASSETS_CORE
+    assert "yahoo:SI=F" in ASSETS_CORE
+    assert "yahoo:HG=F" in ASSETS_CORE
+    assert "yahoo:USDCNY=X" in ASSETS_CORE
 
 
 def test_macro_core_bundle_contains_70_point_categories() -> None:

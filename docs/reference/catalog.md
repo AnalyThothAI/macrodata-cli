@@ -30,18 +30,14 @@ Current implemented providers:
 
 - `fred`: Generic FRED series observations for cataloged datasets. Requires
   `FRED_API_KEY`.
-- `nyfed`: NY Fed Markets SOFR. No API key.
+- `nyfed`: NY Fed Markets SOFR, reverse repo, and standing repo observations.
+  No API key.
 - `treasury_fiscal`: Treasury Fiscal Daily Treasury Statement operating cash
   balance. No API key.
 - `yahoo`: Yahoo Finance daily adjusted price series through yfinance. No API
   key. yfinance is unofficial, not affiliated with Yahoo, and Yahoo API usage
   is intended for personal use.
 - `cftc`: CFTC public Commitment of Traders positioning proxies. No API key.
-
-Cataloged providers pending runtime fetch implementation:
-
-- `nyfed:RRP` and `nyfed:SRF` are cataloged for source discovery but are not
-  fetched by current bundle commands.
 
 ## Curated Catalog
 
@@ -70,8 +66,8 @@ Cataloged providers pending runtime fetch implementation:
 | `fred:DCOILWTICO` | WTI Crude Oil Price | usd_per_barrel | daily | yes | implemented |
 | `fred:DTWEXBGS` | Nominal Broad US Dollar Index | index | daily | yes | implemented |
 | `nyfed:SOFR` | Secured Overnight Financing Rate | percent | daily | no | implemented |
-| `nyfed:RRP` | Overnight Reverse Repo Operations | millions_usd | daily | no | catalog metadata only |
-| `nyfed:SRF` | Standing Repo Facility Operations | millions_usd | daily | no | catalog metadata only |
+| `nyfed:RRP` | Overnight Reverse Repo Operations | millions_usd | daily | no | implemented |
+| `nyfed:SRF` | Standing Repo Facility Operations | millions_usd | daily | no | implemented |
 | `yahoo:SPY` | SPDR S&P 500 ETF Trust | price | daily | no | implemented |
 | `yahoo:QQQ` | Invesco QQQ Trust | price | daily | no | implemented |
 | `yahoo:IWM` | iShares Russell 2000 ETF | price | daily | no | implemented |

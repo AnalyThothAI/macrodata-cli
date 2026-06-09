@@ -54,7 +54,8 @@ Current public providers:
 
 - `fred`: FRED time series, including rates, Fed balance sheet, credit-spread,
   and volatility proxy series. Requires `FRED_API_KEY`.
-- `nyfed`: NY Fed Markets SOFR endpoint. No API key.
+- `nyfed`: NY Fed Markets SOFR, reverse repo, and standing repo endpoints. No
+  API key.
 - `treasury_fiscal`: Treasury Fiscal Data Daily Treasury Statement operating
   cash balance. No API key.
 - `yahoo`: Yahoo Finance daily adjusted price series through yfinance. No API
@@ -62,8 +63,7 @@ Current public providers:
   is intended for personal use.
 - `cftc`: CFTC public Commitment of Traders positioning proxies. No API key.
 
-The catalog also contains liquidity-oriented NY Fed `RRP` and `SRF` metadata for
-source discovery. The implemented NY Fed fetch path is `nyfed:SOFR`.
+The NY Fed fetch paths include `nyfed:SOFR`, `nyfed:RRP`, and `nyfed:SRF`.
 
 ## CLI Commands
 

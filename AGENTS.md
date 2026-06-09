@@ -57,12 +57,10 @@ uv run macrodata mcp serve
 
 - `fred`: implemented for curated FRED catalog entries; requires
   `FRED_API_KEY`.
-- `nyfed`: implemented for `nyfed:SOFR`; no API key.
+- `nyfed`: implemented for `nyfed:SOFR`, `nyfed:RRP`, and `nyfed:SRF`; no API
+  key.
 - `treasury_fiscal`: implemented for
   `treasury_fiscal:operating_cash_balance`; no API key.
-
-The catalog contains `nyfed:RRP` and `nyfed:SRF` metadata for future liquidity
-coverage. Do not assume they are fetchable until provider support is added.
 
 ## Verification
 

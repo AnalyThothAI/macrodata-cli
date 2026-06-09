@@ -11,8 +11,10 @@ from macrodata.providers.nyfed import NyFedMarketsProvider
 
 SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
 RRP_URL = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
+SRF_URL = "https://markets.newyorkfed.org/api/rp/results/search.json"
 EXPECTED_SOFR = 4.31
 EXPECTED_RRP_MILLIONS = 3281.0
+EXPECTED_SRF_MILLIONS = 4.0
 UNKNOWN_SERIES_EXIT_CODE = 2
 
 
@@ -105,6 +107,52 @@ def test_nyfed_reverse_repo_parses_operations() -> None:
 
 
 @respx.mock
+def test_nyfed_standing_repo_facility_aggregates_daily_repo_operations() -> None:
+    route = respx.get(SRF_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "repo": {
+                    "operations": [
+                        {
+                            "operationId": "RP 060526 25",
+                            "operationDate": "2026-06-05",
+                            "operationType": "Repo",
+                            "term": "Overnight",
+                            "lastUpdated": "2026-06-05 08:30:24",
+                            "totalAmtAccepted": 1000000,
+                        },
+                        {
+                            "operationId": "RP 060526 27",
+                            "operationDate": "2026-06-05",
+                            "operationType": "Repo",
+                            "term": "Overnight",
+                            "lastUpdated": "2026-06-05 13:45:32",
+                            "totalAmtAccepted": 3000000,
+                        },
+                    ]
+                }
+            },
+        )
+    )
+    provider = NyFedMarketsProvider(http_client=MacrodataHttpClient())
+
+    observations = provider.get_range("SRF", start="2026-06-05", end="2026-06-05")
+
+    assert route.called
+    assert len(observations) == 1
+    assert observations[0].series_key == "nyfed:SRF"
+    assert observations[0].provider == "nyfed"
+    assert observations[0].dataset == "SRF"
+    assert observations[0].observed_at == "2026-06-05"
+    assert observations[0].value == EXPECTED_SRF_MILLIONS
+    assert observations[0].unit == "millions_usd"
+    assert observations[0].frequency == "daily"
+    assert observations[0].source_ts == "2026-06-05"
+    assert observations[0].provenance == [{"provider": "nyfed", "source_url": SRF_URL}]
+
+
+@respx.mock
 def test_nyfed_sorts_newest_first_rows_before_latest_selection() -> None:
     respx.get(SOFR_URL).mock(
         return_value=Response(
@@ -148,12 +196,12 @@ def test_nyfed_rejects_unsupported_dataset_structured() -> None:
     provider = NyFedMarketsProvider(http_client=MacrodataHttpClient())
 
     with pytest.raises(MacrodataError) as raised:
-        provider.get_range("SRF", start="2026-05-20", end="2026-05-20")
+        provider.get_range("NOTREAL", start="2026-05-20", end="2026-05-20")
 
     assert raised.value.code == "unknown_series"
     assert raised.value.provider == "nyfed"
     assert raised.value.exit_code == UNKNOWN_SERIES_EXIT_CODE
-    assert "SRF" in raised.value.message
+    assert "NOTREAL" in raised.value.message
 
 
 @respx.mock

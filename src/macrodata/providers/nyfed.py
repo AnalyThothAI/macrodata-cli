@@ -12,6 +12,7 @@ class NyFedMarketsProvider:
     provider_name = "nyfed"
     sofr_url = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
     reverse_repo_url = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
+    repo_results_url = "https://markets.newyorkfed.org/api/rp/results/search.json"
 
     def __init__(self, *, http_client: MacrodataHttpClient) -> None:
         self._http_client = http_client
@@ -32,6 +33,8 @@ class NyFedMarketsProvider:
             return self._get_sofr_range(start=start, end=end)
         if dataset == "RRP":
             return self._get_reverse_repo_range(start=start, end=end)
+        if dataset == "SRF":
+            return self._get_standing_repo_range(start=start, end=end)
         raise MacrodataError(
             code="unknown_series",
             message=f"NY Fed dataset is not supported: {dataset}",
@@ -86,6 +89,59 @@ class NyFedMarketsProvider:
                 )
             observations.append(self._parse_reverse_repo(row))
         return sorted(observations, key=lambda observation: observation.observed_at)
+
+    def _get_standing_repo_range(self, *, start: str, end: str) -> list[MacroObservation]:
+        payload = self._http_client.get_json(
+            self.repo_results_url,
+            params={
+                "startDate": start,
+                "endDate": end,
+                "operationTypes": "Repo",
+                "term": "overnight",
+            },
+            provider="nyfed",
+        )
+        rows = payload.get("repo", {}).get("operations", []) if isinstance(payload.get("repo"), dict) else []
+        if not isinstance(rows, list):
+            raise MacrodataError(
+                code="provider_parse_error",
+                message="NY Fed repo operations must be a list",
+                provider="nyfed",
+            )
+        daily_totals: dict[str, float] = {}
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise MacrodataError(
+                    code="provider_parse_error",
+                    message=f"NY Fed repo row {index} must be an object",
+                    provider="nyfed",
+                )
+            if row.get("operationType") != "Repo":
+                continue
+            observed_at = self._parse_operation_date(row.get("operationDate"))
+            daily_totals[observed_at] = daily_totals.get(observed_at, 0.0) + self._parse_amount_millions(
+                dataset="SRF",
+                observed_at=observed_at,
+                raw_value=row.get("totalAmtAccepted"),
+            )
+        return [
+            MacroObservation(
+                series_key="nyfed:SRF",
+                provider="nyfed",
+                dataset="SRF",
+                observed_at=observed_at,
+                value=value,
+                unit="millions_usd",
+                frequency="daily",
+                source_ts=observed_at,
+                realtime_start=None,
+                realtime_end=None,
+                latency_class="daily",
+                data_quality="ok",
+                provenance=[{"provider": "nyfed", "source_url": self.repo_results_url}],
+            )
+            for observed_at, value in sorted(daily_totals.items())
+        ]
 
     def smoke(self) -> ProviderSmokeResult:
         checked_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
