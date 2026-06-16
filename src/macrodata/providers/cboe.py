@@ -10,6 +10,7 @@ from macrodata.core.models import MacroObservation, ProviderSmokeResult
 from macrodata.gateway.http_client import MacrodataHttpClient
 
 CBOE_INDEX_HISTORY_URLS = {
+    "VIX9D": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX9D_History.csv",
     "VVIX": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VVIX_History.csv",
     "SKEW": "https://cdn.cboe.com/api/global/us_indices/daily_prices/SKEW_History.csv",
 }
@@ -85,10 +86,17 @@ def _parse_history_csv(*, dataset: str, source_url: str, text: str) -> list[Macr
     try:
         reader = csv.DictReader(StringIO(text))
         fieldnames = reader.fieldnames or []
-        if "DATE" not in fieldnames or dataset not in fieldnames:
-            raise _parse_error(f"Cboe {dataset} history CSV is missing DATE or {dataset} column")
+        value_column = _value_column(dataset, fieldnames)
+        if "DATE" not in fieldnames or value_column is None:
+            raise _parse_error(f"Cboe {dataset} history CSV is missing DATE or value column")
         observations = [
-            _parse_row(dataset=dataset, source_url=source_url, row_number=row_number, row=row)
+            _parse_row(
+                dataset=dataset,
+                source_url=source_url,
+                row_number=row_number,
+                row=row,
+                value_column=value_column,
+            )
             for row_number, row in enumerate(reader, start=2)
             if _has_data(row)
         ]
@@ -103,9 +111,10 @@ def _parse_row(
     source_url: str,
     row_number: int,
     row: dict[str, Any],
+    value_column: str,
 ) -> MacroObservation:
     observed_at = _parse_observed_at(dataset=dataset, row_number=row_number, raw_value=row.get("DATE"))
-    value = _parse_value(dataset=dataset, observed_at=observed_at, raw_value=row.get(dataset))
+    value = _parse_value(dataset=dataset, observed_at=observed_at, raw_value=row.get(value_column))
     return MacroObservation(
         series_key=f"cboe:{dataset}",
         provider="cboe",
@@ -139,6 +148,14 @@ def _parse_value(*, dataset: str, observed_at: str, raw_value: Any) -> float:
         return float(raw_text)
     except (TypeError, ValueError) as exc:
         raise _parse_error(f"Cboe {dataset} value at {observed_at} is not numeric: {raw_text}") from exc
+
+
+def _value_column(dataset: str, fieldnames: list[str]) -> str | None:
+    if dataset in fieldnames:
+        return dataset
+    if "CLOSE" in fieldnames:
+        return "CLOSE"
+    return None
 
 
 def _parse_request_date(label: str, raw_value: str) -> date:

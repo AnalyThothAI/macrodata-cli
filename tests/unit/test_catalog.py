@@ -246,6 +246,7 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     catalog = default_catalog()
 
     vix_3m = catalog.get("fred:VXVCLS")
+    vix_9d = catalog.get("cboe:VIX9D")
     vvix = catalog.get("cboe:VVIX")
     skew = catalog.get("cboe:SKEW")
     bbb_oas = catalog.get("fred:BAMLC0A4CBBB")
@@ -258,6 +259,11 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     assert vix_3m.unit == "index"
     assert vix_3m.frequency == "daily"
     assert "term structure" in vix_3m.description
+    assert vix_9d.name == "Cboe 9-Day Volatility Index"
+    assert vix_9d.provider == "cboe"
+    assert vix_9d.dataset == "VIX9D"
+    assert vix_9d.source_url == "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX9D_History.csv"
+    assert "short-horizon" in vix_9d.description
     assert vvix.name == "Cboe VIX of VIX Index"
     assert vvix.provider == "cboe"
     assert vvix.dataset == "VVIX"
