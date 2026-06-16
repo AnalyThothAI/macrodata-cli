@@ -13,16 +13,24 @@ class MacrodataHttpClient:
     def __init__(self, *, timeout_sec: float = 10.0) -> None:
         self.timeout_sec = timeout_sec
 
-    def get_json(self, url: str, *, params: dict[str, Any] | None = None, provider: str) -> dict[str, Any]:
+    def get_json(
+        self,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        provider: str,
+        timeout_sec: float | None = None,
+    ) -> dict[str, Any]:
+        request_timeout = self._request_timeout(timeout_sec)
         try:
-            with httpx.Client(timeout=self.timeout_sec, headers=DEFAULT_HEADERS, trust_env=False) as client:
+            with httpx.Client(timeout=request_timeout, headers=DEFAULT_HEADERS, trust_env=False) as client:
                 response = client.get(url, params=params)
                 response.raise_for_status()
                 payload = response.json()
         except httpx.TimeoutException as exc:
             raise MacrodataError(
                 code="provider_timeout",
-                message=f"{provider} request timed out after {self.timeout_sec:.1f} seconds",
+                message=f"{provider} request timed out after {request_timeout:.1f} seconds",
                 retryable=True,
                 provider=provider,
             ) from exc
@@ -56,10 +64,18 @@ class MacrodataHttpClient:
             ) from exc
         return payload if isinstance(payload, dict) else {"data": payload}
 
-    def get_text(self, url: str, *, params: dict[str, Any] | None = None, provider: str) -> str:
+    def get_text(
+        self,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        provider: str,
+        timeout_sec: float | None = None,
+    ) -> str:
+        request_timeout = self._request_timeout(timeout_sec)
         try:
             with httpx.Client(
-                timeout=self.timeout_sec,
+                timeout=request_timeout,
                 follow_redirects=True,
                 headers=DEFAULT_HEADERS,
                 trust_env=False,
@@ -69,7 +85,7 @@ class MacrodataHttpClient:
         except httpx.TimeoutException as exc:
             raise MacrodataError(
                 code="provider_timeout",
-                message=f"{provider} request timed out after {self.timeout_sec:.1f} seconds",
+                message=f"{provider} request timed out after {request_timeout:.1f} seconds",
                 retryable=True,
                 provider=provider,
             ) from exc
@@ -95,3 +111,6 @@ class MacrodataHttpClient:
                 provider=provider,
             ) from exc
         return response.text
+
+    def _request_timeout(self, timeout_sec: float | None) -> float:
+        return self.timeout_sec if timeout_sec is None else float(timeout_sec)

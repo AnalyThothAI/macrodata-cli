@@ -43,6 +43,43 @@ def test_http_client_disables_environment_proxy_settings(monkeypatch: pytest.Mon
     assert client_kwargs[1]["trust_env"] is False
 
 
+def test_http_client_allows_text_timeout_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    client_kwargs: list[dict[str, object]] = []
+
+    class FakeResponse:
+        text = "ok"
+
+        def raise_for_status(self) -> None:
+            return None
+
+    class FakeClient:
+        def __init__(self, **kwargs: object) -> None:
+            client_kwargs.append(dict(kwargs))
+
+        def __enter__(self) -> FakeClient:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def get(self, _url: str, *, params: dict[str, object] | None = None) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    client = MacrodataHttpClient(timeout_sec=1.0)
+
+    assert client.get_text("https://example.test/page", provider="official_fed_text", timeout_sec=30.0) == "ok"
+
+    assert client_kwargs == [
+        {
+            "timeout": 30.0,
+            "follow_redirects": True,
+            "headers": {"User-Agent": "macrodata-cli/0.1"},
+            "trust_env": False,
+        }
+    ]
+
+
 def test_unsupported_protocol_is_wrapped_as_non_retryable_request_error() -> None:
     client = MacrodataHttpClient(timeout_sec=1.0)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import cast
 
 import pytest
 import respx
@@ -212,3 +213,31 @@ def test_official_fed_text_provider_hard_rejects_removed_legacy_fed_page_series(
         provider.get_latest("fed_page_latest")
 
     assert exc_info.value.code == "unknown_series"
+
+
+def test_official_fed_text_provider_uses_extended_timeout_for_fed_text_sources() -> None:
+    calls: list[float | None] = []
+
+    class FakeHttpClient:
+        timeout_sec = 10.0
+
+        def get_text(
+            self,
+            _url: str,
+            *,
+            provider: str,
+            timeout_sec: float | None = None,
+            params: dict[str, object] | None = None,
+        ) -> str:
+            del provider, params
+            calls.append(timeout_sec)
+            return SPEECHES_RSS
+
+    provider = OfficialFedTextProvider(
+        http_client=cast(MacrodataHttpClient, FakeHttpClient()),
+        today=date(2026, 6, 16),
+    )
+
+    provider.get_latest("speech_latest")
+
+    assert calls == [30.0]

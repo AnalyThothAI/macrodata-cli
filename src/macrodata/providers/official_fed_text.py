@@ -17,6 +17,7 @@ FED_BASE_URL = "https://www.federalreserve.gov"
 FED_FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 FED_MONETARY_POLICY_RSS_URL = "https://www.federalreserve.gov/feeds/press_monetary.xml"
 FED_SPEECHES_RSS_URL = "https://www.federalreserve.gov/feeds/speeches.xml"
+FED_TEXT_TIMEOUT_SEC = 30.0
 
 _FOMC_YEAR_RE = re.compile(r"^(20\d{2})\s+FOMC\s+Meetings$", re.IGNORECASE)
 _MEETING_DATE_RE = re.compile(
@@ -125,9 +126,16 @@ _DATASETS = {
 class OfficialFedTextProvider:
     provider_name = "official_fed_text"
 
-    def __init__(self, *, http_client: MacrodataHttpClient, today: date | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        http_client: MacrodataHttpClient,
+        today: date | None = None,
+        text_timeout_sec: float = FED_TEXT_TIMEOUT_SEC,
+    ) -> None:
         self._http_client = http_client
         self._today = today
+        self._text_timeout_sec = float(text_timeout_sec)
         self._text_cache: dict[str, str] = {}
 
     def get_latest(self, dataset: str) -> MacroObservation:
@@ -323,7 +331,11 @@ class OfficialFedTextProvider:
         cached = self._text_cache.get(url)
         if cached is not None:
             return cached
-        text = self._http_client.get_text(url, provider=self.provider_name)
+        text = self._http_client.get_text(
+            url,
+            provider=self.provider_name,
+            timeout_sec=max(self._http_client.timeout_sec, self._text_timeout_sec),
+        )
         self._text_cache[url] = text
         return text
 
