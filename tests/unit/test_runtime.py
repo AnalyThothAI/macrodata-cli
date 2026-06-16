@@ -5,6 +5,7 @@ from importlib.metadata import version
 from macrodata.app.runtime import build_runtime
 from macrodata.providers.cftc import CftcProvider
 from macrodata.providers.official_calendar import OfficialCalendarProvider
+from macrodata.providers.official_fed_text import OfficialFedTextProvider
 from macrodata.providers.treasury_auction import TreasuryAuctionProvider
 from macrodata.providers.yahoo import YahooPriceProvider
 
@@ -29,6 +30,12 @@ def test_runtime_wires_official_calendar_provider() -> None:
     assert isinstance(runtime.gateway.provider("official_calendar"), OfficialCalendarProvider)
 
 
+def test_runtime_wires_official_fed_text_provider() -> None:
+    runtime = build_runtime()
+
+    assert isinstance(runtime.gateway.provider("official_fed_text"), OfficialFedTextProvider)
+
+
 def test_runtime_wires_treasury_auction_provider() -> None:
     runtime = build_runtime()
 
@@ -36,4 +43,4 @@ def test_runtime_wires_treasury_auction_provider() -> None:
 
 
 def test_package_version_advances_for_event_history_release() -> None:
-    assert version("macrodata-cli") == "0.1.9"
+    assert version("macrodata-cli") == "0.1.10"

@@ -202,6 +202,23 @@ BLS CPI, Employment Situation, and PPI calendar series are not in the catalog or
 default bundle because the BLS schedule site returns HTTP 403 or hangs from this
 runtime. Treat them as a source gap until a stable public API/feed is selected.
 
+`fed-text-core` requests official Federal Reserve text-document event series:
+
+- `official_fed_text:fomc_statement_latest`
+- `official_fed_text:fomc_minutes_latest`
+- `official_fed_text:monetary_policy_press_release_latest`
+- `official_fed_text:speech_latest`
+
+Fed text observations use FOMC release date or RSS publication timestamp as
+`observed_at`, document title as `value`, and official source URL,
+source-page/feed URL, document type, meeting date, release date, category, or
+description metadata in `provenance`.
+If multiple RSS documents share the exact same timestamp, `observed_at` uses a
+stable second-level offset for idempotency and provenance keeps the exact
+`published_at` value.
+This bundle is separate from `macro-core`; it is text evidence for downstream
+synthesis, not daily numeric history for regime scoring.
+
 `treasury-auction-core` requests latest completed auction result event series:
 
 - `treasury_auction:2y_high_yield`

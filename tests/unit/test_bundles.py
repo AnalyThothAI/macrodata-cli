@@ -10,6 +10,7 @@ from macrodata.app.services import (
     ASSETS_CORE,
     CREDIT_CORE,
     ECONOMY_CORE,
+    FED_TEXT_CORE,
     LIQUIDITY_CORE,
     MACRO_CALENDAR_CORE,
     MACRO_CORE,
@@ -33,6 +34,7 @@ EXPECTED_VOLATILITY_CORE_SIZE = 9
 EXPECTED_CREDIT_CORE_SIZE = 25
 EXPECTED_ASSETS_CORE_SIZE = 48
 EXPECTED_MACRO_CALENDAR_CORE_SIZE = 3
+EXPECTED_FED_TEXT_CORE_SIZE = 4
 EXPECTED_TREASURY_AUCTION_CORE_SIZE = 9
 EXPECTED_FRED_RATE_FAILURES = 8
 EXPECTED_MIN_MACRO_CORE_SIZE = 90
@@ -222,6 +224,18 @@ def test_macro_calendar_core_is_separate_from_numeric_regime_bundle() -> None:
     assert not set(MACRO_CALENDAR_CORE).intersection(MACRO_CORE)
 
 
+def test_fed_text_core_is_separate_from_numeric_regime_bundle_and_legacy_pages() -> None:
+    assert len(FED_TEXT_CORE) == EXPECTED_FED_TEXT_CORE_SIZE
+    assert FED_TEXT_CORE == [
+        "official_fed_text:fomc_statement_latest",
+        "official_fed_text:fomc_minutes_latest",
+        "official_fed_text:monetary_policy_press_release_latest",
+        "official_fed_text:speech_latest",
+    ]
+    assert "official_fed_text:fed_page_latest" not in FED_TEXT_CORE
+    assert not set(FED_TEXT_CORE).intersection(MACRO_CORE)
+
+
 def test_treasury_auction_core_is_separate_from_numeric_regime_bundle() -> None:
     assert len(TREASURY_AUCTION_CORE) == EXPECTED_TREASURY_AUCTION_CORE_SIZE
     assert TREASURY_AUCTION_CORE == [
@@ -246,6 +260,7 @@ def test_treasury_auction_core_is_separate_from_numeric_regime_bundle() -> None:
         ("volatility-core", VOLATILITY_CORE, ["fred", "yahoo"]),
         ("credit-core", CREDIT_CORE, ["fred", "yahoo"]),
         ("assets-core", ASSETS_CORE, ["fred", "yahoo"]),
+        ("fed-text-core", FED_TEXT_CORE, ["official_fed_text"]),
         ("treasury-auction-core", TREASURY_AUCTION_CORE, ["treasury_auction"]),
     ],
 )

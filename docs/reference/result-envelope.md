@@ -165,9 +165,16 @@ label/snapshot date, not a historical cutoff. Use each observation's
 `observed_at` / `source_ts` for freshness.
 `macro-calendar-core` is the exception: `asof` is the reference date used to
 calculate `days_until` for future official calendar events.
+`fed-text-core` is a text-document event bundle: FOMC calendar documents use
+release date as `observed_at`, RSS documents use publication timestamp, and all
+items use document title as `value` with official Fed URL/document metadata in
+provenance. If multiple RSS documents share the exact same timestamp,
+`observed_at` receives a stable second-level collision offset while the exact
+Fed `published_at` timestamp remains in provenance.
 `treasury-auction-core` is another event bundle: observations use the auction
 date as `observed_at` and FiscalData record date as `source_ts`.
 `bundle history macro-calendar-core` and
+`bundle history fed-text-core`,
 `bundle history treasury-auction-core` use bounded event dates so downstream
 sync workers can refresh catalysts through the same history-envelope shape as
 `macro-core`.
@@ -228,6 +235,11 @@ sync workers can refresh catalysts through the same history-envelope shape as
 `fetch.series`. `snapshot.source_health` is the provider-level diagnostic view:
 calendar observations also use the same shape, with event date in `observed_at`,
 `value` expressed as `days_until`, and event title/time/source in provenance.
+Fed text observations use document release date or publication timestamp in
+`observed_at`, document title in `value`, and official document/source-page
+URLs in provenance. For same-timestamp RSS collisions, `observed_at` may be
+offset by seconds for idempotency while provenance keeps the exact published
+timestamp.
 Auction observations also use the same shape, with auction date in
 `observed_at`, result metrics in `value`, and CUSIP/issue/accepted/tendered
 metadata in provenance.

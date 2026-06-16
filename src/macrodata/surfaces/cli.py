@@ -360,6 +360,23 @@ def bundle_history_macro_calendar_core(
     )
 
 
+@bundle_history_app.command("fed-text-core")
+def bundle_history_fed_text_core(
+    start: str = typer.Option(..., "--start"),
+    end: str = typer.Option(..., "--end"),
+    fred_api_key: str | None = typer.Option(None, "--fred-api-key"),
+    output_format: str = typer.Option("json", "--format"),
+) -> None:
+    _run_bundle_history_command(
+        bundle_name="fed-text-core",
+        command="bundle.fed-text-core-history",
+        start=start,
+        end=end,
+        fred_api_key=fred_api_key,
+        output_format=output_format,
+    )
+
+
 @bundle_history_app.command("treasury-auction-core")
 def bundle_history_treasury_auction_core(
     start: str = typer.Option(..., "--start"),

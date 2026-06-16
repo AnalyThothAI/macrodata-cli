@@ -18,6 +18,10 @@ The `official_calendar:*` series are available through `catalog_show`,
 `fetch_series`, and `fetch_latest`. The dedicated `macro-calendar-core` bundle
 is exposed through CLI `bundle fetch` and `bundle history` commands; there is
 no separate MCP shortcut tool yet.
+The `official_fed_text:*` series are available through `catalog_show`,
+`fetch_series`, and `fetch_latest`. The dedicated `fed-text-core` bundle is
+exposed through CLI `bundle fetch` and `bundle history` commands; there is no
+separate MCP shortcut tool yet.
 The `treasury_auction:*` series are also available through `catalog_show`,
 `fetch_series`, and `fetch_latest`. The dedicated `treasury-auction-core`
 bundle is exposed through CLI `bundle fetch` and `bundle history` commands;

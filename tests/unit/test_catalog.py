@@ -112,6 +112,32 @@ def test_catalog_contains_official_calendar_event_series() -> None:
     assert "official_calendar:bls_ppi_next" not in keys
 
 
+def test_catalog_contains_official_fed_text_series_without_legacy_page_aliases() -> None:
+    catalog = default_catalog()
+    keys = {entry.series_key for entry in catalog.list_entries()}
+
+    statement = catalog.get("official_fed_text:fomc_statement_latest")
+    minutes = catalog.get("official_fed_text:fomc_minutes_latest")
+    speech = catalog.get("official_fed_text:speech_latest")
+
+    assert {
+        "official_fed_text:fomc_statement_latest",
+        "official_fed_text:fomc_minutes_latest",
+        "official_fed_text:monetary_policy_press_release_latest",
+        "official_fed_text:speech_latest",
+    }.issubset(keys)
+    assert statement.provider == "official_fed_text"
+    assert statement.unit == "document"
+    assert statement.frequency == "event"
+    assert statement.requires_api_key is False
+    assert statement.source_url == "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+    assert "FOMC statement" in statement.description
+    assert minutes.source_url == "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+    assert speech.source_url == "https://www.federalreserve.gov/feeds/speeches.xml"
+    assert "official_fed_text:fed_page_latest" not in keys
+    assert "official_fed_text:fomc_statement_page" not in keys
+
+
 def test_catalog_contains_treasury_auction_result_series() -> None:
     catalog = default_catalog()
     keys = {entry.series_key for entry in catalog.list_entries()}

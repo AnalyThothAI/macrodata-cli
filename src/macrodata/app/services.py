@@ -190,6 +190,13 @@ MACRO_CALENDAR_CORE = [
     "official_calendar:bea_pce_next",
 ]
 
+FED_TEXT_CORE = [
+    "official_fed_text:fomc_statement_latest",
+    "official_fed_text:fomc_minutes_latest",
+    "official_fed_text:monetary_policy_press_release_latest",
+    "official_fed_text:speech_latest",
+]
+
 TREASURY_AUCTION_CORE = [
     "treasury_auction:2y_high_yield",
     "treasury_auction:2y_bid_to_cover",
@@ -223,6 +230,7 @@ BUNDLES = {
     "credit-core": CREDIT_CORE,
     "assets-core": ASSETS_CORE,
     "macro-calendar-core": MACRO_CALENDAR_CORE,
+    "fed-text-core": FED_TEXT_CORE,
     "treasury-auction-core": TREASURY_AUCTION_CORE,
     "macro-core": MACRO_CORE,
 }
@@ -444,27 +452,26 @@ def _source_health(
     error_codes_by_provider: dict[str, list[str]] = {}
     retryable_by_provider: dict[str, bool] = {}
     for error in series_errors:
-        provider = error.get("provider")
-        if not isinstance(provider, str) or not provider:
-            series_key = error.get("series_key")
-            provider = series_key.split(":", 1)[0] if isinstance(series_key, str) else "unknown"
-        if provider not in requested_by_provider:
-            provider_order.append(provider)
-            requested_by_provider[provider] = 0
+        error_provider = _provider_from_error_payload(error)
+        if error_provider not in requested_by_provider:
+            provider_order.append(error_provider)
+            requested_by_provider[error_provider] = 0
 
         code = error.get("code")
         if isinstance(code, str) and code:
-            error_codes_by_provider.setdefault(provider, [])
-            if code not in error_codes_by_provider[provider]:
-                error_codes_by_provider[provider].append(code)
+            error_codes_by_provider.setdefault(error_provider, [])
+            if code not in error_codes_by_provider[error_provider]:
+                error_codes_by_provider[error_provider].append(code)
 
-        retryable_by_provider[provider] = bool(retryable_by_provider.get(provider)) or bool(error.get("retryable"))
+        retryable_by_provider[error_provider] = bool(retryable_by_provider.get(error_provider)) or bool(
+            error.get("retryable")
+        )
 
-        access_mode = error.get("access_mode")
-        if isinstance(access_mode, str) and access_mode:
-            access_modes_by_provider.setdefault(provider, [])
-            if access_mode not in access_modes_by_provider[provider]:
-                access_modes_by_provider[provider].append(access_mode)
+        raw_access_mode = error.get("access_mode")
+        if isinstance(raw_access_mode, str) and raw_access_mode:
+            access_modes_by_provider.setdefault(error_provider, [])
+            if raw_access_mode not in access_modes_by_provider[error_provider]:
+                access_modes_by_provider[error_provider].append(raw_access_mode)
 
     return [
         _provider_health_entry(
@@ -477,6 +484,14 @@ def _source_health(
         )
         for provider in provider_order
     ]
+
+
+def _provider_from_error_payload(error: dict[str, object]) -> str:
+    raw_provider = error.get("provider")
+    if isinstance(raw_provider, str) and raw_provider:
+        return raw_provider
+    raw_series_key = error.get("series_key")
+    return raw_series_key.split(":", 1)[0] if isinstance(raw_series_key, str) else "unknown"
 
 
 def _provider_health_entry(

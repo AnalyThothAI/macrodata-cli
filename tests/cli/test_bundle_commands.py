@@ -25,10 +25,13 @@ TREASURY_AUCTION_URL = (
 CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BEA_RELEASE_DATES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
+FED_MONETARY_POLICY_RSS_URL = "https://www.federalreserve.gov/feeds/press_monetary.xml"
+FED_SPEECHES_RSS_URL = "https://www.federalreserve.gov/feeds/speeches.xml"
 TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
 EXPECTED_RATES_REQUESTED = 9
 EXPECTED_LIQUIDITY_REQUESTED = 7
 EXPECTED_MACRO_CALENDAR_REQUESTED = 3
+EXPECTED_FED_TEXT_REQUESTED = 4
 EXPECTED_TREASURY_AUCTION_REQUESTED = 9
 EXPECTED_MIN_MACRO_REQUESTED = 20
 VALIDATION_EXIT_CODE = 2
@@ -182,6 +185,99 @@ def mock_official_calendar() -> None:
                 "Gross Domestic Product": {"release_dates": ["2026-06-25T12:30:00+00:00"]},
                 "Personal Income and Outlays": {"release_dates": ["2026-06-25T12:30:00+00:00"]},
             },
+        )
+    )
+
+
+def mock_bea_calendar() -> None:
+    respx.get(BEA_RELEASE_DATES_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "Gross Domestic Product": {"release_dates": ["2026-06-25T12:30:00+00:00"]},
+                "Personal Income and Outlays": {"release_dates": ["2026-06-25T12:30:00+00:00"]},
+            },
+        )
+    )
+
+
+def mock_official_fed_text() -> None:
+    respx.get(FOMC_CALENDAR_URL).mock(
+        return_value=Response(
+            200,
+            text="""
+            <html><body>
+            <h4>2026 FOMC Meetings</h4>
+            <div class="fomc-meeting">
+              <div>January 27-28</div>
+              <a href="/newsevents/pressreleases/monetary20260128a.htm">Statement</a>
+              <div class="fomc-meeting__minutes">
+                <strong>Minutes:</strong>
+                <a href="/monetarypolicy/files/fomcminutes20260128.pdf">PDF</a> |
+                <a href="/monetarypolicy/fomcminutes20260128.htm">HTML</a>
+                <br> (Released February 18, 2026)
+              </div>
+            </div>
+            <div class="fomc-meeting">
+              <div>March 17-18*</div>
+              <a href="/newsevents/pressreleases/monetary20260318a.htm">Statement</a>
+              <div class="fomc-meeting__minutes">
+                <strong>Minutes:</strong>
+                <a href="/monetarypolicy/files/fomcminutes20260318.pdf">PDF</a> |
+                <a href="/monetarypolicy/fomcminutes20260318.htm">HTML</a>
+                <br> (Released April 08, 2026)
+              </div>
+            </div>
+            <p>June</p><p>16-17*</p>
+            <p>July</p><p>28-29</p>
+            </body></html>
+            """,
+        )
+    )
+    respx.get(FED_MONETARY_POLICY_RSS_URL).mock(
+        return_value=Response(
+            200,
+            text="""<?xml version="1.0" encoding="utf-8" ?>
+            <rss version="2.0"><channel>
+              <item>
+                <title>Minutes of the Federal Open Market Committee, March 17-18, 2026</title>
+                <link><![CDATA[https://www.federalreserve.gov/newsevents/pressreleases/monetary20260408a.htm]]></link>
+                <description><![CDATA[Minutes of the Federal Open Market Committee, March 17-18, 2026]]></description>
+                <category>Monetary Policy</category>
+                <pubDate><![CDATA[Wed, 8 Apr 2026 18:00:00 GMT]]></pubDate>
+              </item>
+              <item>
+                <title>Federal Reserve issues FOMC statement</title>
+                <link><![CDATA[https://www.federalreserve.gov/newsevents/pressreleases/monetary20260318a.htm]]></link>
+                <description><![CDATA[Federal Reserve issues FOMC statement]]></description>
+                <category>Monetary Policy</category>
+                <pubDate><![CDATA[Wed, 18 Mar 2026 18:00:00 GMT]]></pubDate>
+              </item>
+            </channel></rss>
+            """,
+        )
+    )
+    respx.get(FED_SPEECHES_RSS_URL).mock(
+        return_value=Response(
+            200,
+            text="""<?xml version="1.0" encoding="utf-8" ?>
+            <rss version="2.0"><channel>
+              <item>
+                <title>Bowman, A Framework for Practical Monetary Policy Decision Making</title>
+                <link><![CDATA[https://www.federalreserve.gov/newsevents/speech/bowman20260529a.htm]]></link>
+                <description><![CDATA[Speech At the Reykjavik Economic Conference 2026]]></description>
+                <category>Speech</category>
+                <pubDate><![CDATA[Fri, 29 May 2026 13:10:00 GMT]]></pubDate>
+              </item>
+              <item>
+                <title>Waller, Policy Risks Have Changed</title>
+                <link><![CDATA[https://www.federalreserve.gov/newsevents/speech/waller20260522a.htm]]></link>
+                <description><![CDATA[Speech At The Centre for Central Banking Guest Lecture]]></description>
+                <category>Speech</category>
+                <pubDate><![CDATA[Fri, 22 May 2026 14:00:00 GMT]]></pubDate>
+              </item>
+            </channel></rss>
+            """,
         )
     )
 
@@ -357,6 +453,37 @@ def test_treasury_auction_core_bundle_fetch_uses_official_fiscaldata() -> None:
 
 
 @respx.mock
+def test_fed_text_core_bundle_fetch_uses_official_fed_sources() -> None:
+    mock_official_fed_text()
+
+    result = CliRunner().invoke(
+        app,
+        ["bundle", "fetch", "fed-text-core", "--asof", "2026-06-16"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    snapshot = payload["data"]["snapshot"]
+    assert payload["ok"] is True
+    assert snapshot["bundle"] == "fed-text-core"
+    assert snapshot["coverage"] == {
+        "requested": EXPECTED_FED_TEXT_REQUESTED,
+        "available": EXPECTED_FED_TEXT_REQUESTED,
+    }
+    assert snapshot["source_chain"] == ["official_fed_text"]
+    assert snapshot["missing_series"] == []
+    assert snapshot["data_quality"] == "ok"
+    assert {item["series_key"] for item in snapshot["observations"]} == {
+        "official_fed_text:fomc_statement_latest",
+        "official_fed_text:fomc_minutes_latest",
+        "official_fed_text:monetary_policy_press_release_latest",
+        "official_fed_text:speech_latest",
+    }
+    assert snapshot["observations"][0]["value"] == "FOMC statement"
+    assert snapshot["observations"][0]["provenance"][0]["source_url"].startswith("https://www.federalreserve.gov/")
+
+
+@respx.mock
 def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FRED_API_KEY", raising=False)
     mock_fred_public_csv()
@@ -388,12 +515,17 @@ def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> N
 
 @respx.mock
 def test_event_bundle_history_commands_are_first_class_sync_surfaces() -> None:
-    mock_official_calendar()
+    mock_official_fed_text()
+    mock_bea_calendar()
     mock_treasury_auction()
 
     calendar_result = CliRunner().invoke(
         app,
         ["bundle", "history", "macro-calendar-core", "--start", "2026-06-16", "--end", "2026-07-31"],
+    )
+    fed_text_result = CliRunner().invoke(
+        app,
+        ["bundle", "history", "fed-text-core", "--start", "2026-03-01", "--end", "2026-05-31"],
     )
     auction_result = CliRunner().invoke(
         app,
@@ -411,6 +543,23 @@ def test_event_bundle_history_commands_are_first_class_sync_surfaces() -> None:
         "official_calendar:fomc_decision_next",
         "official_calendar:bea_gdp_next",
         "official_calendar:bea_pce_next",
+    }
+
+    assert fed_text_result.exit_code == 0
+    fed_text_snapshot = json.loads(fed_text_result.stdout)["data"]["snapshot"]
+    assert fed_text_snapshot["bundle"] == "fed-text-core"
+    assert fed_text_snapshot["coverage"] == {
+        "requested": EXPECTED_FED_TEXT_REQUESTED,
+        "available": EXPECTED_FED_TEXT_REQUESTED,
+    }
+    assert {item["series_key"] for item in fed_text_snapshot["observations"]} == {
+        "official_fed_text:fomc_statement_latest",
+        "official_fed_text:fomc_minutes_latest",
+        "official_fed_text:monetary_policy_press_release_latest",
+        "official_fed_text:speech_latest",
+    }
+    assert "official_fed_text:fed_page_latest" not in {
+        item["series_key"] for item in fed_text_snapshot["observations"]
     }
 
     assert auction_result.exit_code == 0

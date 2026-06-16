@@ -73,6 +73,22 @@ def _official_calendar(dataset: str, name: str, description: str, source_url: st
     )
 
 
+def _official_fed_text(dataset: str, name: str, description: str, source_url: str) -> SourceCatalogEntry:
+    return SourceCatalogEntry(
+        series_key=f"official_fed_text:{dataset}",
+        name=name,
+        provider="official_fed_text",
+        dataset=dataset,
+        description=description,
+        unit="document",
+        frequency="event",
+        latency_class="event",
+        requires_api_key=False,
+        source_url=source_url,
+        license_note="Federal Reserve official public website and RSS feed terms apply.",
+    )
+
+
 def _treasury_auction(dataset: str, name: str, description: str, unit: str) -> SourceCatalogEntry:
     return SourceCatalogEntry(
         series_key=f"treasury_auction:{dataset}",
@@ -419,6 +435,30 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
         "Next Personal Income and Outlays Release",
         "Next Personal Income and Outlays/PCE release date from the BEA release-date JSON feed.",
         "https://apps.bea.gov/API/signup/release_dates.json",
+    ),
+    _official_fed_text(
+        "fomc_statement_latest",
+        "Latest FOMC Statement",
+        "Latest official FOMC statement document from the Federal Reserve meeting calendar.",
+        "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+    ),
+    _official_fed_text(
+        "fomc_minutes_latest",
+        "Latest FOMC Minutes",
+        "Latest official FOMC minutes document from the Federal Reserve meeting calendar.",
+        "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+    ),
+    _official_fed_text(
+        "monetary_policy_press_release_latest",
+        "Latest Fed Monetary Policy Press Release",
+        "Latest official Federal Reserve monetary policy press release from the public RSS feed.",
+        "https://www.federalreserve.gov/feeds/press_monetary.xml",
+    ),
+    _official_fed_text(
+        "speech_latest",
+        "Latest Fed Speech",
+        "Latest official Federal Reserve speech from the public RSS feed.",
+        "https://www.federalreserve.gov/feeds/speeches.xml",
     ),
     _treasury_auction(
         "2y_high_yield",

@@ -19,6 +19,7 @@ uv run macrodata bundle rates-core --asof 2026-05-21
 uv run macrodata bundle liquidity-core --asof 2026-05-21
 uv run macrodata bundle macro-core --asof 2026-05-21
 uv run macrodata bundle fetch macro-calendar-core --asof 2026-06-16
+uv run macrodata bundle fetch fed-text-core --asof 2026-06-16
 uv run macrodata mcp serve
 ```
 
@@ -48,7 +49,8 @@ environment variable is preferred for agent use. Secrets are never printed; the
 NY Fed Markets SOFR, Treasury Fiscal Daily Treasury Statement operating cash
 balance, Treasury FiscalData auction results, Yahoo Finance daily prices, CFTC
 Commitment of Traders data, and official Fed/BEA release calendars are public
-sources and do not require an API key.
+sources and do not require an API key. Official Federal Reserve text documents
+use public Fed pages and RSS feeds and do not require an API key.
 
 ## Providers
 
@@ -69,6 +71,8 @@ Current public providers:
 - `cftc`: CFTC public Commitment of Traders positioning proxies. No API key.
 - `official_calendar`: Federal Reserve FOMC calendar and BEA release-date JSON
   feed for next-event catalyst series. No API key.
+- `official_fed_text`: Federal Reserve FOMC statement/minutes calendar links,
+  monetary policy press-release RSS, and speech RSS. No API key.
 
 The NY Fed fetch paths include `nyfed:SOFR`, `nyfed:RRP`, and `nyfed:SRF`.
 
@@ -85,16 +89,19 @@ uv run macrodata source smoke --provider treasury_auction
 uv run macrodata source smoke --provider yahoo
 uv run macrodata source smoke --provider cftc
 uv run macrodata source smoke --provider official_calendar
+uv run macrodata source smoke --provider official_fed_text
 uv run macrodata fetch series fred:DGS10 --start 2026-05-20 --end 2026-05-20
 uv run macrodata fetch series yahoo:SPY --start 2026-05-20 --end 2026-05-21
 uv run macrodata bundle rates-core --asof 2026-05-21
 uv run macrodata bundle liquidity-core --asof 2026-05-21
 uv run macrodata bundle macro-core --asof 2026-05-21
 uv run macrodata bundle fetch macro-calendar-core --asof 2026-06-16
+uv run macrodata bundle fetch fed-text-core --asof 2026-06-16
 uv run macrodata bundle fetch treasury-auction-core --asof 2026-06-16
 uv run macrodata bundle fetch rates-core --asof 2026-05-21
 uv run macrodata bundle history macro-core --start 2026-05-01 --end 2026-05-21
 uv run macrodata bundle history macro-calendar-core --start 2026-06-16 --end 2026-07-31
+uv run macrodata bundle history fed-text-core --start 2026-03-01 --end 2026-05-31
 uv run macrodata bundle history treasury-auction-core --start 2026-06-01 --end 2026-06-30
 uv run macrodata mcp serve
 ```
@@ -123,7 +130,10 @@ public API/feed is selected.
 completed 2Y/10Y/30Y auction result events from the official FiscalData auction
 query endpoint. It intentionally omits auction tail because no when-issued
 yield source is implemented in this package.
-Both event bundles expose `bundle history ... --start ... --end ...` so
+`fed-text-core` is separate as well: it provides official Fed statement,
+minutes, monetary policy press-release, and speech text-document events. Text
+documents are evidence for downstream synthesis, not numeric regime history.
+Event and text bundles expose `bundle history ... --start ... --end ...` so
 downstream schedulers can refresh catalysts through the same bounded-window
 contract as `macro-core`.
 

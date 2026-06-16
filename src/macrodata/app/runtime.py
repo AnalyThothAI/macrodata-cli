@@ -12,6 +12,7 @@ from macrodata.providers.contracts import SeriesProvider
 from macrodata.providers.fred import FredSeriesProvider
 from macrodata.providers.nyfed import NyFedMarketsProvider
 from macrodata.providers.official_calendar import OfficialCalendarProvider
+from macrodata.providers.official_fed_text import OfficialFedTextProvider
 from macrodata.providers.treasury_auction import TreasuryAuctionProvider
 from macrodata.providers.treasury_fiscal import TreasuryFiscalProvider
 from macrodata.providers.yahoo import YahooPriceProvider
@@ -42,6 +43,7 @@ def build_runtime(
         "yahoo": YahooPriceProvider(timeout_sec=timeout_sec),
         "cftc": CftcProvider(http_client=http_client),
         "official_calendar": OfficialCalendarProvider(http_client=http_client, today=calendar_today),
+        "official_fed_text": OfficialFedTextProvider(http_client=http_client, today=calendar_today),
     }
     gateway = MacrodataGateway(catalog=catalog, providers=providers)
     service = MacrodataService(gateway=gateway, max_workers=bundle_max_workers)
