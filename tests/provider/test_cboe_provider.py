@@ -8,6 +8,7 @@ from macrodata.app.runtime import build_runtime
 
 VVIX_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VVIX_History.csv"
 SKEW_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/SKEW_History.csv"
+VIX1D_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX1D_History.csv"
 VIX9D_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX9D_History.csv"
 LATEST_SKEW_VALUE = 143.75
 
@@ -17,6 +18,13 @@ LATEST_SKEW_VALUE = 143.75
     [
         ("cboe:VVIX", VVIX_URL, "DATE,VVIX\n05/19/2026,88.120000\n05/20/2026,91.340000\n", 91.34),
         ("cboe:SKEW", SKEW_URL, "DATE,SKEW\n05/19/2026,141.250000\n05/20/2026,143.750000\n", 143.75),
+        (
+            "cboe:VIX1D",
+            VIX1D_URL,
+            "DATE,OPEN,HIGH,LOW,CLOSE\n05/19/2026,13.600000,19.400000,11.700000,14.250000\n"
+            "05/20/2026,14.300000,16.700000,10.800000,12.920000\n",
+            12.92,
+        ),
         (
             "cboe:VIX9D",
             VIX9D_URL,

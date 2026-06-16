@@ -106,6 +106,7 @@ ECONOMY_CORE = [
 VOLATILITY_CORE = [
     "fred:VIXCLS",
     "fred:VXVCLS",
+    "cboe:VIX1D",
     "cboe:VIX9D",
     "cboe:VVIX",
     "cboe:SKEW",

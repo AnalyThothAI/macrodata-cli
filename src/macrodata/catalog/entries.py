@@ -366,6 +366,11 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
     _fred("OVXCLS", "CBOE Crude Oil ETF Volatility Index", "Crude oil ETF implied volatility proxy.", "index", "daily"),
     _fred("EVZCLS", "CBOE EuroCurrency Volatility Index", "Euro currency implied volatility proxy.", "index", "daily"),
     _cboe(
+        "VIX1D",
+        "Cboe 1-Day Volatility Index",
+        "Cboe one-day S&P 500 option volatility index for same-day event-risk and ultra-short stress monitoring.",
+    ),
+    _cboe(
         "VIX9D",
         "Cboe 9-Day Volatility Index",
         "Cboe short-horizon S&P 500 option volatility index for event-risk and near-term stress monitoring.",

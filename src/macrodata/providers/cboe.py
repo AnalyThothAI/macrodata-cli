@@ -10,6 +10,7 @@ from macrodata.core.models import MacroObservation, ProviderSmokeResult
 from macrodata.gateway.http_client import MacrodataHttpClient
 
 CBOE_INDEX_HISTORY_URLS = {
+    "VIX1D": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX1D_History.csv",
     "VIX9D": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX9D_History.csv",
     "VVIX": "https://cdn.cboe.com/api/global/us_indices/daily_prices/VVIX_History.csv",
     "SKEW": "https://cdn.cboe.com/api/global/us_indices/daily_prices/SKEW_History.csv",

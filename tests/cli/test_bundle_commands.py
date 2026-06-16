@@ -30,6 +30,7 @@ TENTATIVE_AUCTION_SCHEDULE_URL = "https://home.treasury.gov/system/files/221/Ten
 CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
 VVIX_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VVIX_History.csv"
 SKEW_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/SKEW_History.csv"
+VIX1D_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX1D_History.csv"
 VIX9D_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX9D_History.csv"
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BEA_RELEASE_DATES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
@@ -399,6 +400,7 @@ def mock_yahoo(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def mock_cboe() -> None:
+    respx.get(VIX1D_URL).mock(return_value=Response(200, text="DATE,OPEN,HIGH,LOW,CLOSE\n05/20/2026,12,14,10,12.92\n"))
     respx.get(VIX9D_URL).mock(return_value=Response(200, text="DATE,OPEN,HIGH,LOW,CLOSE\n05/20/2026,16,17,15,16.25\n"))
     respx.get(VVIX_URL).mock(return_value=Response(200, text="DATE,VVIX\n05/20/2026,91.340000\n"))
     respx.get(SKEW_URL).mock(return_value=Response(200, text="DATE,SKEW\n05/20/2026,143.750000\n"))
