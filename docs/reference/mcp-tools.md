@@ -14,6 +14,14 @@ as arguments and must not echo secrets.
 
 All tools return the same result envelope described in
 [result-envelope.md](result-envelope.md).
+The `official_calendar:*` series are available through `catalog_show`,
+`fetch_series`, and `fetch_latest`. The dedicated `macro-calendar-core` bundle
+is exposed through CLI `bundle fetch` and `bundle history` commands; there is
+no separate MCP shortcut tool yet.
+The `treasury_auction:*` series are also available through `catalog_show`,
+`fetch_series`, and `fetch_latest`. The dedicated `treasury-auction-core`
+bundle is exposed through CLI `bundle fetch` and `bundle history` commands;
+there is no separate MCP shortcut tool yet.
 
 ## Tools
 
@@ -88,6 +96,8 @@ Fetch the curated rates snapshot.
 MVP bundles fetch latest available observations; `asof` is a caller
 label/snapshot date, not a historical cutoff. Use each observation's
 `observed_at` / `source_ts` for freshness.
+Bundle snapshots include `source_health`, which summarizes provider-level
+coverage, status, redacted access mode, error codes, and retryability.
 
 Input:
 
@@ -104,6 +114,8 @@ Fetch the curated liquidity snapshot.
 MVP bundles fetch latest available observations; `asof` is a caller
 label/snapshot date, not a historical cutoff. Use each observation's
 `observed_at` / `source_ts` for freshness.
+Bundle snapshots include `source_health`, which summarizes provider-level
+coverage, status, redacted access mode, error codes, and retryability.
 
 Input:
 
@@ -120,6 +132,8 @@ Fetch the curated macro-core snapshot.
 MVP bundles fetch latest available observations; `asof` is a caller
 label/snapshot date, not a historical cutoff. Use each observation's
 `observed_at` / `source_ts` for freshness.
+Bundle snapshots include `source_health`, which summarizes provider-level
+coverage, status, redacted access mode, error codes, and retryability.
 
 Input:
 
@@ -159,3 +173,9 @@ Output command: `bundle.macro-core-history`
    specifically rates-only or liquidity-only.
 7. Prefer `bundle_macro_core_history` for recent-window macro context where
    trend and coverage diagnostics matter more than a single latest point.
+8. Prefer `fetch_latest` on `official_calendar:*` when the agent needs one
+   upcoming catalyst, and CLI `bundle fetch macro-calendar-core` when it needs
+   the compact Fed/BEA catalyst packet.
+9. Prefer `fetch_latest` on `treasury_auction:*` when the agent needs one latest
+   auction metric, and CLI `bundle fetch treasury-auction-core` when it needs
+   the compact 2Y/10Y/30Y auction result packet.

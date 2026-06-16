@@ -163,6 +163,14 @@ Agents must inspect `data.result.ok`, `data.result.error_code`, and
 MVP bundles fetch latest available observations; `asof` is a caller
 label/snapshot date, not a historical cutoff. Use each observation's
 `observed_at` / `source_ts` for freshness.
+`macro-calendar-core` is the exception: `asof` is the reference date used to
+calculate `days_until` for future official calendar events.
+`treasury-auction-core` is another event bundle: observations use the auction
+date as `observed_at` and FiscalData record date as `source_ts`.
+`bundle history macro-calendar-core` and
+`bundle history treasury-auction-core` use bounded event dates so downstream
+sync workers can refresh catalysts through the same history-envelope shape as
+`macro-core`.
 
 ```json
 {
@@ -187,6 +195,28 @@ label/snapshot date, not a historical cutoff. Use each observation's
     "coverage": {"requested": 9, "available": 9},
     "missing_series": [],
     "series_errors": [],
+    "source_health": [
+      {
+        "provider": "fred",
+        "requested": 8,
+        "available": 8,
+        "missing": 0,
+        "status": "ok",
+        "access_mode": "api_key",
+        "error_codes": [],
+        "retryable": false
+      },
+      {
+        "provider": "nyfed",
+        "requested": 1,
+        "available": 1,
+        "missing": 0,
+        "status": "ok",
+        "access_mode": null,
+        "error_codes": [],
+        "retryable": false
+      }
+    ],
     "source_chain": ["fred", "nyfed"],
     "data_quality": "ok",
     "reason_codes": []
@@ -195,4 +225,11 @@ label/snapshot date, not a historical cutoff. Use each observation's
 ```
 
 `snapshot.observations` uses the same `MacroObservation` shape as
-`fetch.series`.
+`fetch.series`. `snapshot.source_health` is the provider-level diagnostic view:
+calendar observations also use the same shape, with event date in `observed_at`,
+`value` expressed as `days_until`, and event title/time/source in provenance.
+Auction observations also use the same shape, with auction date in
+`observed_at`, result metrics in `value`, and CUSIP/issue/accepted/tendered
+metadata in provenance.
+it counts unique available series, summarizes missing coverage, and reports
+only redacted access modes such as `api_key` or `public_csv`.

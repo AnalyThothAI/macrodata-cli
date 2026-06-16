@@ -31,6 +31,7 @@ class FredSeriesProvider:
                 message=f"FRED returned no data for {dataset}",
                 provider="fred",
                 exit_code=4,
+                details={"access_mode": self._access_mode()},
             )
         return observations[-1]
 
@@ -38,24 +39,28 @@ class FredSeriesProvider:
         if not self._api_key:
             return self._get_range_from_public_csv(dataset, start=start, end=end)
 
-        payload = self._http_client.get_json(
-            self.base_url,
-            params={
-                "series_id": dataset,
-                "api_key": self._api_key,
-                "file_type": "json",
-                "observation_start": start,
-                "observation_end": end,
-                "sort_order": "asc",
-            },
-            provider="fred",
-        )
+        try:
+            payload = self._http_client.get_json(
+                self.base_url,
+                params={
+                    "series_id": dataset,
+                    "api_key": self._api_key,
+                    "file_type": "json",
+                    "observation_start": start,
+                    "observation_end": end,
+                    "sort_order": "asc",
+                },
+                provider="fred",
+            )
+        except MacrodataError as exc:
+            raise self._with_access_mode(exc, "api_key") from exc
         raw_observations = payload.get("observations", [])
         if not isinstance(raw_observations, list):
             raise MacrodataError(
                 code="provider_parse_error",
                 message="FRED observations must be a list",
                 provider="fred",
+                details={"access_mode": "api_key"},
             )
         observations: list[MacroObservation] = []
         for index, item in enumerate(raw_observations):
@@ -64,8 +69,9 @@ class FredSeriesProvider:
                     code="provider_parse_error",
                     message=f"FRED observation row {index} for {dataset} must be an object",
                     provider="fred",
+                    details={"access_mode": "api_key"},
                 )
-            observations.append(self._parse_observation(dataset, item))
+            observations.append(self._parse_observation(dataset, item, access_mode="api_key"))
         return observations
 
     def _get_range_from_public_csv(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
@@ -76,7 +82,13 @@ class FredSeriesProvider:
             observed_at = str(row.get("observation_date", "")).strip()
             if not observed_at or observed_at < start or observed_at > end:
                 continue
-            observations.append(self._parse_observation(dataset, {"date": observed_at, "value": row.get(dataset)}))
+            observations.append(
+                self._parse_observation(
+                    dataset,
+                    {"date": observed_at, "value": row.get(dataset)},
+                    access_mode="public_csv",
+                )
+            )
         return observations
 
     def _get_public_csv_text(self, dataset: str, *, start: str, end: str) -> str:
@@ -94,6 +106,7 @@ class FredSeriesProvider:
                 message=f"fred request timed out after {self._http_client.timeout_sec:.1f} seconds",
                 retryable=True,
                 provider="fred",
+                details={"access_mode": "public_csv"},
             ) from exc
         except httpx.HTTPStatusError as exc:
             raise MacrodataError(
@@ -101,6 +114,7 @@ class FredSeriesProvider:
                 message=f"fred returned HTTP {exc.response.status_code}",
                 retryable=exc.response.status_code in {429, 500, 502, 503, 504},
                 provider="fred",
+                details={"access_mode": "public_csv"},
             ) from exc
         except httpx.InvalidURL as exc:
             raise MacrodataError(
@@ -108,6 +122,7 @@ class FredSeriesProvider:
                 message="fred request URL is invalid",
                 retryable=False,
                 provider="fred",
+                details={"access_mode": "public_csv"},
             ) from exc
         except httpx.RequestError as exc:
             raise MacrodataError(
@@ -115,6 +130,7 @@ class FredSeriesProvider:
                 message=f"fred request failed: {type(exc).__name__}",
                 retryable=not isinstance(exc, (httpx.UnsupportedProtocol, httpx.LocalProtocolError)),
                 provider="fred",
+                details={"access_mode": "public_csv"},
             ) from exc
         return response.text
 
@@ -127,6 +143,7 @@ class FredSeriesProvider:
                 message=f"FRED CSV for {dataset} could not be parsed",
                 retryable=False,
                 provider="fred",
+                details={"access_mode": "public_csv"},
             ) from exc
         if not rows:
             return []
@@ -137,6 +154,7 @@ class FredSeriesProvider:
                 message=f"FRED CSV for {dataset} is missing required columns",
                 retryable=False,
                 provider="fred",
+                details={"access_mode": "public_csv"},
             )
         return rows
 
@@ -162,7 +180,7 @@ class FredSeriesProvider:
             sample_source_ts=latest.source_ts,
         )
 
-    def _parse_observation(self, dataset: str, item: dict[str, Any]) -> MacroObservation:
+    def _parse_observation(self, dataset: str, item: dict[str, Any], *, access_mode: str) -> MacroObservation:
         observed_at = str(item.get("date", "")).strip()
         raw_value = item.get("value")
         value = self._parse_value(dataset=dataset, observed_at=observed_at, raw_value=raw_value)
@@ -179,7 +197,13 @@ class FredSeriesProvider:
             realtime_end=item.get("realtime_end"),
             latency_class="eod",
             data_quality="ok" if value is not None else "partial",
-            provenance=[{"provider": "fred", "source_url": f"https://fred.stlouisfed.org/series/{dataset}"}],
+            provenance=[
+                {
+                    "provider": "fred",
+                    "source_url": f"https://fred.stlouisfed.org/series/{dataset}",
+                    "access_mode": access_mode,
+                }
+            ],
         )
 
     def _parse_value(self, *, dataset: str, observed_at: str, raw_value: Any) -> float | None:
@@ -193,4 +217,18 @@ class FredSeriesProvider:
                 message=f"FRED value for {dataset} on {observed_at or 'unknown date'} is not numeric",
                 retryable=False,
                 provider="fred",
+                details={"access_mode": self._access_mode()},
             ) from exc
+
+    def _access_mode(self) -> str:
+        return "api_key" if self._api_key else "public_csv"
+
+    def _with_access_mode(self, error: MacrodataError, access_mode: str) -> MacrodataError:
+        return MacrodataError(
+            code=error.code,
+            message=error.message,
+            retryable=error.retryable,
+            provider=error.provider,
+            exit_code=error.exit_code,
+            details={**error.details, "access_mode": access_mode},
+        )

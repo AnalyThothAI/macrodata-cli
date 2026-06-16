@@ -10,6 +10,7 @@ class MacrodataError(Exception):
         retryable: bool = False,
         provider: str | None = None,
         exit_code: int = 3,
+        details: dict[str, object] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -17,6 +18,7 @@ class MacrodataError(Exception):
         self.retryable = retryable
         self.provider = provider
         self.exit_code = exit_code
+        self.details = details or {}
 
 
 class ValidationError(MacrodataError):

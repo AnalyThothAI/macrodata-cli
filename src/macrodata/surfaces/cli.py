@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import date
 from typing import Any
 
 import typer
@@ -197,7 +198,10 @@ def _run_bundle_command(
     output_format: str,
 ) -> None:
     started = time.monotonic()
-    runtime = build_runtime(fred_api_key=fred_api_key_from_env(fred_api_key))
+    runtime = build_runtime(
+        fred_api_key=fred_api_key_from_env(fred_api_key),
+        calendar_today=_calendar_today_from_asof(asof),
+    )
     try:
         snapshot = runtime.service.bundle(bundle_name, asof=asof)
     except MacrodataError as exc:
@@ -339,6 +343,40 @@ def bundle_history_macro_core(
     )
 
 
+@bundle_history_app.command("macro-calendar-core")
+def bundle_history_macro_calendar_core(
+    start: str = typer.Option(..., "--start"),
+    end: str = typer.Option(..., "--end"),
+    fred_api_key: str | None = typer.Option(None, "--fred-api-key"),
+    output_format: str = typer.Option("json", "--format"),
+) -> None:
+    _run_bundle_history_command(
+        bundle_name="macro-calendar-core",
+        command="bundle.macro-calendar-core-history",
+        start=start,
+        end=end,
+        fred_api_key=fred_api_key,
+        output_format=output_format,
+    )
+
+
+@bundle_history_app.command("treasury-auction-core")
+def bundle_history_treasury_auction_core(
+    start: str = typer.Option(..., "--start"),
+    end: str = typer.Option(..., "--end"),
+    fred_api_key: str | None = typer.Option(None, "--fred-api-key"),
+    output_format: str = typer.Option("json", "--format"),
+) -> None:
+    _run_bundle_history_command(
+        bundle_name="treasury-auction-core",
+        command="bundle.treasury-auction-core-history",
+        start=start,
+        end=end,
+        fred_api_key=fred_api_key,
+        output_format=output_format,
+    )
+
+
 @mcp_app.command("serve")
 def mcp_serve() -> None:
     serve()
@@ -346,3 +384,10 @@ def mcp_serve() -> None:
 
 def main() -> None:
     app()
+
+
+def _calendar_today_from_asof(asof: str) -> date | None:
+    try:
+        return date.fromisoformat(asof)
+    except ValueError:
+        return None

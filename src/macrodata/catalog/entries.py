@@ -57,6 +57,38 @@ def _cftc(dataset: str, name: str, description: str) -> SourceCatalogEntry:
     )
 
 
+def _official_calendar(dataset: str, name: str, description: str, source_url: str) -> SourceCatalogEntry:
+    return SourceCatalogEntry(
+        series_key=f"official_calendar:{dataset}",
+        name=name,
+        provider="official_calendar",
+        dataset=dataset,
+        description=description,
+        unit="days_until",
+        frequency="event",
+        latency_class="calendar",
+        requires_api_key=False,
+        source_url=source_url,
+        license_note="Official public release-calendar source terms apply.",
+    )
+
+
+def _treasury_auction(dataset: str, name: str, description: str, unit: str) -> SourceCatalogEntry:
+    return SourceCatalogEntry(
+        series_key=f"treasury_auction:{dataset}",
+        name=name,
+        provider="treasury_auction",
+        dataset=dataset,
+        description=description,
+        unit=unit,
+        frequency="event",
+        latency_class="event",
+        requires_api_key=False,
+        source_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query",
+        license_note="U.S. Treasury FiscalData public API terms apply.",
+    )
+
+
 CATALOG_ENTRIES: list[SourceCatalogEntry] = [
     _fred("DFF", "Effective Federal Funds Rate", "Daily effective federal funds rate.", "percent", "daily"),
     _fred("FEDFUNDS", "Federal Funds Effective Rate", "Monthly effective federal funds rate.", "percent", "monthly"),
@@ -124,6 +156,13 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
     _fred("CIVPART", "Labor Force Participation Rate", "US labor force participation rate.", "percent", "monthly"),
     _fred("ICSA", "Initial Claims", "US weekly initial unemployment insurance claims.", "number", "weekly"),
     _fred("JTSJOL", "Job Openings: Total Nonfarm", "US nonfarm job openings.", "thousands", "monthly"),
+    _fred(
+        "CES0500000003",
+        "Average Hourly Earnings of All Employees, Total Private",
+        "US private-sector average hourly earnings wage pressure signal.",
+        "dollars_per_hour",
+        "monthly",
+    ),
     _fred("CPIAUCSL", "Consumer Price Index", "US headline CPI for all urban consumers.", "index", "monthly"),
     _fred("CPILFESL", "Core Consumer Price Index", "US CPI excluding food and energy.", "index", "monthly"),
     _fred("PPIACO", "Producer Price Index", "US producer price index for all commodities.", "index", "monthly"),
@@ -203,6 +242,62 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
         "Adjusted US financial conditions proxy.",
         "index",
         "weekly",
+    ),
+    _fred(
+        "DRTSCILM",
+        "Net Percentage of Domestic Banks Tightening Standards for C&I Loans to Large and Middle-Market Firms",
+        "SLOOS net share of domestic banks tightening standards for large and middle-market C&I loans.",
+        "percent",
+        "quarterly",
+    ),
+    _fred(
+        "DRTSCIS",
+        "Net Percentage of Domestic Banks Tightening Standards for C&I Loans to Small Firms",
+        "SLOOS net share of domestic banks tightening standards for small-firm C&I loans.",
+        "percent",
+        "quarterly",
+    ),
+    _fred(
+        "DRSDCILM",
+        "Net Percentage of Domestic Banks Reporting Stronger Demand for C&I Loans From Large and Middle-Market Firms",
+        "SLOOS net share of domestic banks reporting stronger demand for large and middle-market C&I loans.",
+        "percent",
+        "quarterly",
+    ),
+    _fred(
+        "DRSDCIS",
+        "Net Percentage of Domestic Banks Reporting Stronger Demand for C&I Loans From Small Firms",
+        "SLOOS net share of domestic banks reporting stronger demand for small-firm C&I loans.",
+        "percent",
+        "quarterly",
+    ),
+    _fred(
+        "DRBLACBS",
+        "Delinquency Rate on Business Loans, All Commercial Banks",
+        "Quarterly business-loan delinquency rate for all commercial banks; public loan quality signal.",
+        "percent",
+        "quarterly",
+    ),
+    _fred(
+        "DRCLACBS",
+        "Delinquency Rate on Consumer Loans, All Commercial Banks",
+        "Quarterly consumer-loan delinquency rate for all commercial banks; public loan quality signal.",
+        "percent",
+        "quarterly",
+    ),
+    _fred(
+        "CORBLACBS",
+        "Charge-Off Rate on Business Loans, All Commercial Banks",
+        "Quarterly business-loan charge-off rate for all commercial banks; public loan quality signal.",
+        "percent",
+        "quarterly",
+    ),
+    _fred(
+        "CORCACBS",
+        "Charge-Off Rate on Consumer Loans, All Commercial Banks",
+        "Quarterly consumer-loan charge-off rate for all commercial banks; public loan quality signal.",
+        "percent",
+        "quarterly",
     ),
     _fred("VIXCLS", "CBOE VIX Close", "Equity volatility proxy.", "index", "daily"),
     _fred(
@@ -299,12 +394,85 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
     _yahoo("USDCNY=X", "USD/CNY", "US dollar to Chinese yuan spot FX proxy."),
     _yahoo("USDKRW=X", "USD/KRW", "US dollar to Korean won spot FX proxy."),
     _yahoo("VIXY", "ProShares VIX Short-Term Futures ETF", "Short-term VIX futures ETF proxy."),
+    _yahoo("VIXM", "ProShares VIX Mid-Term Futures ETF", "Mid-term VIX futures ETF proxy."),
     _yahoo("BTC-USD", "Bitcoin USD", "Bitcoin spot USD price proxy."),
     _yahoo("ETH-USD", "Ether USD", "Ether spot USD price proxy."),
     _cftc(
         "financial_futures:sp500_net_noncommercial",
         "S&P 500 Net Noncommercial Positioning",
         "CFTC financial futures net noncommercial positioning for S&P 500 futures.",
+    ),
+    _official_calendar(
+        "fomc_decision_next",
+        "Next FOMC Decision",
+        "Next scheduled FOMC policy-decision date from the Federal Reserve meeting calendar.",
+        "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
+    ),
+    _official_calendar(
+        "bea_gdp_next",
+        "Next GDP Release",
+        "Next Gross Domestic Product release date from the BEA release-date JSON feed.",
+        "https://apps.bea.gov/API/signup/release_dates.json",
+    ),
+    _official_calendar(
+        "bea_pce_next",
+        "Next Personal Income and Outlays Release",
+        "Next Personal Income and Outlays/PCE release date from the BEA release-date JSON feed.",
+        "https://apps.bea.gov/API/signup/release_dates.json",
+    ),
+    _treasury_auction(
+        "2y_high_yield",
+        "2-Year Treasury Auction High Yield",
+        "Latest completed 2-year Treasury note auction high yield.",
+        "percent",
+    ),
+    _treasury_auction(
+        "2y_bid_to_cover",
+        "2-Year Treasury Auction Bid-to-Cover",
+        "Latest completed 2-year Treasury note auction bid-to-cover ratio.",
+        "ratio",
+    ),
+    _treasury_auction(
+        "2y_indirect_bidder_pct",
+        "2-Year Treasury Auction Indirect Bidder Share",
+        "indirect bidder accepted amount as a percentage of total accepted 2-year Treasury auction amount.",
+        "percent",
+    ),
+    _treasury_auction(
+        "10y_high_yield",
+        "10-Year Treasury Auction High Yield",
+        "Latest completed 10-year Treasury note auction high yield.",
+        "percent",
+    ),
+    _treasury_auction(
+        "10y_bid_to_cover",
+        "10-Year Treasury Auction Bid-to-Cover",
+        "Latest completed 10-year Treasury note auction bid-to-cover ratio.",
+        "ratio",
+    ),
+    _treasury_auction(
+        "10y_indirect_bidder_pct",
+        "10-Year Treasury Auction Indirect Bidder Share",
+        "indirect bidder accepted amount as a percentage of total accepted 10-year Treasury auction amount.",
+        "percent",
+    ),
+    _treasury_auction(
+        "30y_high_yield",
+        "30-Year Treasury Auction High Yield",
+        "Latest completed 30-year Treasury bond auction high yield.",
+        "percent",
+    ),
+    _treasury_auction(
+        "30y_bid_to_cover",
+        "30-Year Treasury Auction Bid-to-Cover",
+        "Latest completed 30-year Treasury bond auction bid-to-cover ratio.",
+        "ratio",
+    ),
+    _treasury_auction(
+        "30y_indirect_bidder_pct",
+        "30-Year Treasury Auction Indirect Bidder Share",
+        "indirect bidder accepted amount as a percentage of total accepted 30-year Treasury auction amount.",
+        "percent",
     ),
     SourceCatalogEntry(
         series_key="nyfed:SOFR",

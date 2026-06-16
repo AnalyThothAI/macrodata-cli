@@ -78,6 +78,7 @@ ECONOMY_CORE = [
     "fred:CIVPART",
     "fred:ICSA",
     "fred:JTSJOL",
+    "fred:CES0500000003",
     "fred:CPIAUCSL",
     "fred:CPILFESL",
     "fred:PPIACO",
@@ -101,6 +102,7 @@ VOLATILITY_CORE = [
     "fred:OVXCLS",
     "fred:EVZCLS",
     "yahoo:VIXY",
+    "yahoo:VIXM",
 ]
 
 CREDIT_CORE = [
@@ -118,6 +120,14 @@ CREDIT_CORE = [
     "fred:STLFSI4",
     "fred:NFCI",
     "fred:ANFCI",
+    "fred:DRTSCILM",
+    "fred:DRTSCIS",
+    "fred:DRSDCILM",
+    "fred:DRSDCIS",
+    "fred:DRBLACBS",
+    "fred:DRCLACBS",
+    "fred:CORBLACBS",
+    "fred:CORCACBS",
     "yahoo:HYG",
     "yahoo:JNK",
     "yahoo:LQD",
@@ -174,6 +184,24 @@ ASSETS_CORE = [
     "yahoo:ETH-USD",
 ]
 
+MACRO_CALENDAR_CORE = [
+    "official_calendar:fomc_decision_next",
+    "official_calendar:bea_gdp_next",
+    "official_calendar:bea_pce_next",
+]
+
+TREASURY_AUCTION_CORE = [
+    "treasury_auction:2y_high_yield",
+    "treasury_auction:2y_bid_to_cover",
+    "treasury_auction:2y_indirect_bidder_pct",
+    "treasury_auction:10y_high_yield",
+    "treasury_auction:10y_bid_to_cover",
+    "treasury_auction:10y_indirect_bidder_pct",
+    "treasury_auction:30y_high_yield",
+    "treasury_auction:30y_bid_to_cover",
+    "treasury_auction:30y_indirect_bidder_pct",
+]
+
 MACRO_CORE = _unique(
     [
         *LIQUIDITY_CORE,
@@ -194,6 +222,8 @@ BUNDLES = {
     "volatility-core": VOLATILITY_CORE,
     "credit-core": CREDIT_CORE,
     "assets-core": ASSETS_CORE,
+    "macro-calendar-core": MACRO_CALENDAR_CORE,
+    "treasury-auction-core": TREASURY_AUCTION_CORE,
     "macro-core": MACRO_CORE,
 }
 
@@ -274,6 +304,9 @@ class MacrodataService:
                 missing_series.append(result.series_key)
                 series_errors.append(_series_error(series_key=result.series_key, error=result.error))
                 continue
+            if not result.observations:
+                missing_series.append(result.series_key)
+                continue
             if count_available_series and result.observations:
                 available_series += 1
             observations.extend(result.observations)
@@ -333,13 +366,19 @@ def _bundle_series(bundle: str) -> list[str]:
 
 def _series_error(*, series_key: str, error: MacrodataError) -> dict[str, object]:
     provider = error.provider or series_key.split(":", 1)[0]
-    return {
+    payload: dict[str, object] = {
         "series_key": series_key,
         "provider": provider,
         "code": error.code,
         "retryable": error.retryable,
         "message": error.message,
     }
+    access_mode = error.details.get("access_mode")
+    if not access_mode and provider == "fred" and error.code == "missing_api_key":
+        access_mode = "api_key"
+    if isinstance(access_mode, str) and access_mode:
+        payload["access_mode"] = access_mode
+    return payload
 
 
 def _bundle_snapshot(
@@ -362,6 +401,11 @@ def _bundle_snapshot(
         coverage={"requested": len(requested), "available": available},
         missing_series=missing_series,
         series_errors=series_errors,
+        source_health=_source_health(
+            requested=requested,
+            observations=observations,
+            series_errors=series_errors,
+        ),
         source_chain=source_chain,
         data_quality=data_quality,
         reason_codes=_bundle_reason_codes(
@@ -370,6 +414,118 @@ def _bundle_snapshot(
             errors=series_errors,
         ),
     )
+
+
+def _source_health(
+    *,
+    requested: list[str],
+    observations: list[MacroObservation],
+    series_errors: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    provider_order: list[str] = []
+    requested_by_provider: dict[str, int] = {}
+    for series_key in requested:
+        provider = series_key.split(":", 1)[0]
+        if provider not in requested_by_provider:
+            provider_order.append(provider)
+            requested_by_provider[provider] = 0
+        requested_by_provider[provider] += 1
+
+    available_by_provider: dict[str, set[str]] = {}
+    access_modes_by_provider: dict[str, list[str]] = {}
+    for observation in observations:
+        available_by_provider.setdefault(observation.provider, set()).add(observation.series_key)
+        access_mode = _observation_access_mode(observation)
+        if access_mode is not None:
+            access_modes_by_provider.setdefault(observation.provider, [])
+            if access_mode not in access_modes_by_provider[observation.provider]:
+                access_modes_by_provider[observation.provider].append(access_mode)
+
+    error_codes_by_provider: dict[str, list[str]] = {}
+    retryable_by_provider: dict[str, bool] = {}
+    for error in series_errors:
+        provider = error.get("provider")
+        if not isinstance(provider, str) or not provider:
+            series_key = error.get("series_key")
+            provider = series_key.split(":", 1)[0] if isinstance(series_key, str) else "unknown"
+        if provider not in requested_by_provider:
+            provider_order.append(provider)
+            requested_by_provider[provider] = 0
+
+        code = error.get("code")
+        if isinstance(code, str) and code:
+            error_codes_by_provider.setdefault(provider, [])
+            if code not in error_codes_by_provider[provider]:
+                error_codes_by_provider[provider].append(code)
+
+        retryable_by_provider[provider] = bool(retryable_by_provider.get(provider)) or bool(error.get("retryable"))
+
+        access_mode = error.get("access_mode")
+        if isinstance(access_mode, str) and access_mode:
+            access_modes_by_provider.setdefault(provider, [])
+            if access_mode not in access_modes_by_provider[provider]:
+                access_modes_by_provider[provider].append(access_mode)
+
+    return [
+        _provider_health_entry(
+            provider=provider,
+            requested=requested_by_provider[provider],
+            available=len(available_by_provider.get(provider, set())),
+            access_modes=access_modes_by_provider.get(provider, []),
+            error_codes=error_codes_by_provider.get(provider, []),
+            retryable=retryable_by_provider.get(provider, False),
+        )
+        for provider in provider_order
+    ]
+
+
+def _provider_health_entry(
+    *,
+    provider: str,
+    requested: int,
+    available: int,
+    access_modes: list[str],
+    error_codes: list[str],
+    retryable: bool,
+) -> dict[str, object]:
+    missing = max(requested - available, 0)
+    if missing == 0:
+        status: DataQuality = "ok"
+    elif available > 0:
+        status = "partial"
+    else:
+        status = "unavailable"
+
+    return {
+        "provider": provider,
+        "requested": requested,
+        "available": available,
+        "missing": missing,
+        "status": status,
+        "access_mode": _access_mode_summary(access_modes),
+        "error_codes": error_codes,
+        "retryable": retryable,
+    }
+
+
+def _observation_access_mode(observation: MacroObservation) -> str | None:
+    for provenance in observation.provenance:
+        provider = provenance.get("provider")
+        if provider not in {None, observation.provider}:
+            continue
+        access_mode = provenance.get("access_mode")
+        if isinstance(access_mode, str) and access_mode:
+            return access_mode
+    return None
+
+
+def _access_mode_summary(access_modes: list[str]) -> str | None:
+    unique_modes = list(dict.fromkeys(access_modes))
+    if not unique_modes:
+        return None
+    if len(unique_modes) == 1:
+        return unique_modes[0]
+    return "mixed"
 
 
 def _bundle_data_quality(*, observations: list[MacroObservation], missing_series: list[str]) -> DataQuality:
@@ -389,6 +545,9 @@ def _bundle_reason_codes(
     if not missing_series:
         return []
     reason_codes = ["missing_series"]
+    error_series = {str(error.get("series_key")) for error in errors if error.get("series_key")}
+    if any(series_key not in error_series for series_key in missing_series):
+        reason_codes.append("no_observations")
     for error in errors:
         code = error["code"]
         if isinstance(code, str) and code not in reason_codes:

@@ -39,6 +39,7 @@ network requests to public data providers, but they do not mutate remote state.
 - `doctor` reports only `fred_api_key_configured`; it never prints the key.
 - NY Fed Markets SOFR and Treasury Fiscal DTS operating cash balance are public
   sources and require no API key.
+- Official Fed/BEA release calendars are public sources and require no API key.
 
 ## Recommended Command Flow
 
@@ -50,6 +51,7 @@ uv run macrodata source smoke --provider fred
 uv run macrodata fetch series fred:DGS10 --start 2026-05-20 --end 2026-05-20
 uv run macrodata bundle rates-core --asof 2026-05-21
 uv run macrodata bundle liquidity-core --asof 2026-05-21
+uv run macrodata bundle fetch macro-calendar-core --asof 2026-06-16
 uv run macrodata mcp serve
 ```
 
@@ -61,6 +63,8 @@ uv run macrodata mcp serve
   key.
 - `treasury_fiscal`: implemented for
   `treasury_fiscal:operating_cash_balance`; no API key.
+- `official_calendar`: implemented for Fed FOMC and BEA release-date calendar
+  catalysts; no API key.
 
 ## Verification
 

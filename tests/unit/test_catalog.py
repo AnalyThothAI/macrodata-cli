@@ -40,6 +40,7 @@ def test_catalog_contains_macro_core_series() -> None:
         "fred:UNRATE",
         "fred:ICSA",
         "fred:JTSJOL",
+        "fred:CES0500000003",
         "fred:CPIAUCSL",
         "fred:CPILFESL",
         "fred:PCEPI",
@@ -90,6 +91,57 @@ def test_catalog_contains_macro_core_series() -> None:
     assert "fred:WILL5000INDFC" not in keys
 
 
+def test_catalog_contains_official_calendar_event_series() -> None:
+    catalog = default_catalog()
+    keys = {entry.series_key for entry in catalog.list_entries()}
+
+    fomc = catalog.get("official_calendar:fomc_decision_next")
+    gdp = catalog.get("official_calendar:bea_gdp_next")
+    pce = catalog.get("official_calendar:bea_pce_next")
+
+    assert fomc.provider == "official_calendar"
+    assert fomc.unit == "days_until"
+    assert fomc.frequency == "event"
+    assert fomc.requires_api_key is False
+    assert fomc.source_url == "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+    assert "FOMC" in fomc.description
+    assert gdp.source_url == "https://apps.bea.gov/API/signup/release_dates.json"
+    assert pce.provider == "official_calendar"
+    assert "official_calendar:bls_cpi_next" not in keys
+    assert "official_calendar:bls_employment_next" not in keys
+    assert "official_calendar:bls_ppi_next" not in keys
+
+
+def test_catalog_contains_treasury_auction_result_series() -> None:
+    catalog = default_catalog()
+    keys = {entry.series_key for entry in catalog.list_entries()}
+
+    ten_year_bid_to_cover = catalog.get("treasury_auction:10y_bid_to_cover")
+    thirty_year_indirect = catalog.get("treasury_auction:30y_indirect_bidder_pct")
+
+    assert {
+        "treasury_auction:2y_high_yield",
+        "treasury_auction:2y_bid_to_cover",
+        "treasury_auction:2y_indirect_bidder_pct",
+        "treasury_auction:10y_high_yield",
+        "treasury_auction:10y_bid_to_cover",
+        "treasury_auction:10y_indirect_bidder_pct",
+        "treasury_auction:30y_high_yield",
+        "treasury_auction:30y_bid_to_cover",
+        "treasury_auction:30y_indirect_bidder_pct",
+    }.issubset(keys)
+    assert ten_year_bid_to_cover.provider == "treasury_auction"
+    assert ten_year_bid_to_cover.unit == "ratio"
+    assert ten_year_bid_to_cover.frequency == "event"
+    assert ten_year_bid_to_cover.requires_api_key is False
+    assert ten_year_bid_to_cover.source_url == (
+        "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
+    )
+    assert "bid-to-cover" in ten_year_bid_to_cover.description
+    assert thirty_year_indirect.unit == "percent"
+    assert "indirect bidder" in thirty_year_indirect.description
+
+
 def test_catalog_documents_public_macro_terminal_proxies() -> None:
     catalog = default_catalog()
 
@@ -97,6 +149,7 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     bbb_oas = catalog.get("fred:BAMLC0A4CBBB")
     jobless_claims = catalog.get("fred:ICSA")
     credit_proxy = catalog.get("yahoo:JNK")
+    vix_mid_term_proxy = catalog.get("yahoo:VIXM")
 
     assert vix_3m.name == "CBOE S&P 500 3-Month Volatility Index"
     assert vix_3m.unit == "index"
@@ -108,6 +161,57 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     assert jobless_claims.frequency == "weekly"
     assert credit_proxy.provider == "yahoo"
     assert credit_proxy.dataset == "JNK"
+    assert vix_mid_term_proxy.name == "ProShares VIX Mid-Term Futures ETF"
+    assert vix_mid_term_proxy.provider == "yahoo"
+    assert vix_mid_term_proxy.dataset == "VIXM"
+    assert "Mid-term VIX futures" in vix_mid_term_proxy.description
+
+
+def test_catalog_contains_sloos_credit_supply_and_demand_series() -> None:
+    catalog = default_catalog()
+
+    large_standards = catalog.get("fred:DRTSCILM")
+    small_standards = catalog.get("fred:DRTSCIS")
+    large_demand = catalog.get("fred:DRSDCILM")
+    small_demand = catalog.get("fred:DRSDCIS")
+
+    assert large_standards.frequency == "quarterly"
+    assert large_standards.unit == "percent"
+    assert "Large and Middle-Market" in large_standards.name
+    assert "tightening standards" in large_standards.description
+    assert small_standards.frequency == "quarterly"
+    assert "Small Firms" in small_standards.name
+    assert "stronger demand" in large_demand.description
+    assert small_demand.unit == "percent"
+
+
+def test_catalog_contains_loan_quality_credit_series() -> None:
+    catalog = default_catalog()
+
+    business_delinquency = catalog.get("fred:DRBLACBS")
+    consumer_delinquency = catalog.get("fred:DRCLACBS")
+    business_charge_off = catalog.get("fred:CORBLACBS")
+    consumer_charge_off = catalog.get("fred:CORCACBS")
+
+    assert business_delinquency.frequency == "quarterly"
+    assert business_delinquency.unit == "percent"
+    assert business_delinquency.name == "Delinquency Rate on Business Loans, All Commercial Banks"
+    assert "loan quality" in business_delinquency.description
+    assert consumer_delinquency.name == "Delinquency Rate on Consumer Loans, All Commercial Banks"
+    assert business_charge_off.frequency == "quarterly"
+    assert "charge-off" in business_charge_off.description
+    assert consumer_charge_off.unit == "percent"
+
+
+def test_catalog_contains_average_hourly_earnings_labor_series() -> None:
+    catalog = default_catalog()
+
+    wages = catalog.get("fred:CES0500000003")
+
+    assert wages.name == "Average Hourly Earnings of All Employees, Total Private"
+    assert wages.frequency == "monthly"
+    assert wages.unit == "dollars_per_hour"
+    assert "wage pressure" in wages.description
 
 
 def test_catalog_contains_timsun_asset_coverage_extensions() -> None:

@@ -11,9 +11,11 @@ from macrodata.app.services import (
     CREDIT_CORE,
     ECONOMY_CORE,
     LIQUIDITY_CORE,
+    MACRO_CALENDAR_CORE,
     MACRO_CORE,
     RATES_CORE,
     RATES_MARKET_CORE,
+    TREASURY_AUCTION_CORE,
     VOLATILITY_CORE,
     MacrodataService,
 )
@@ -26,10 +28,12 @@ EXPECTED_SINGLE_AVAILABLE = 1
 EXPECTED_RATES_CORE_SIZE = 9
 EXPECTED_RATES_MARKET_CORE_SIZE = 28
 EXPECTED_LIQUIDITY_CORE_SIZE = 7
-EXPECTED_ECONOMY_CORE_SIZE = 20
-EXPECTED_VOLATILITY_CORE_SIZE = 8
-EXPECTED_CREDIT_CORE_SIZE = 17
+EXPECTED_ECONOMY_CORE_SIZE = 21
+EXPECTED_VOLATILITY_CORE_SIZE = 9
+EXPECTED_CREDIT_CORE_SIZE = 25
 EXPECTED_ASSETS_CORE_SIZE = 48
+EXPECTED_MACRO_CALENDAR_CORE_SIZE = 3
+EXPECTED_TREASURY_AUCTION_CORE_SIZE = 9
 EXPECTED_FRED_RATE_FAILURES = 8
 EXPECTED_MIN_MACRO_CORE_SIZE = 90
 VALIDATION_EXIT_CODE = 2
@@ -121,7 +125,7 @@ def test_bundle_snapshot_model() -> None:
     assert snapshot.model_dump(mode="json")["observations"][0]["idempotency_key"] == "fred:DGS10:2026-05-20"
 
 
-def test_bundle_constants_include_supported_core_series() -> None:
+def test_bundle_constants_include_rates_and_liquidity_series() -> None:
     assert len(RATES_CORE) == EXPECTED_RATES_CORE_SIZE
     assert "nyfed:SOFR" in RATES_CORE
     assert len(RATES_MARKET_CORE) == EXPECTED_RATES_MARKET_CORE_SIZE
@@ -136,21 +140,39 @@ def test_bundle_constants_include_supported_core_series() -> None:
     assert "nyfed:RRP" in LIQUIDITY_CORE
     assert "nyfed:SRF" in LIQUIDITY_CORE
     assert "treasury_fiscal:operating_cash_balance" in LIQUIDITY_CORE
+
+
+def test_bundle_constants_include_economy_volatility_and_credit_series() -> None:
     assert len(ECONOMY_CORE) == EXPECTED_ECONOMY_CORE_SIZE
     assert "fred:GDP" in ECONOMY_CORE
     assert "fred:PAYEMS" in ECONOMY_CORE
     assert "fred:ICSA" in ECONOMY_CORE
+    assert "fred:JTSJOL" in ECONOMY_CORE
+    assert "fred:CES0500000003" in ECONOMY_CORE
     assert "fred:PCEPI" in ECONOMY_CORE
     assert "fred:UMCSENT" in ECONOMY_CORE
     assert len(VOLATILITY_CORE) == EXPECTED_VOLATILITY_CORE_SIZE
     assert "fred:VIXCLS" in VOLATILITY_CORE
     assert "fred:VXVCLS" in VOLATILITY_CORE
     assert "fred:VXNCLS" in VOLATILITY_CORE
+    assert "yahoo:VIXY" in VOLATILITY_CORE
+    assert "yahoo:VIXM" in VOLATILITY_CORE
     assert len(CREDIT_CORE) == EXPECTED_CREDIT_CORE_SIZE
     assert "fred:BAMLC0A4CBBB" in CREDIT_CORE
     assert "fred:BAMLH0A3HYC" in CREDIT_CORE
     assert "fred:STLFSI4" in CREDIT_CORE
+    assert "fred:DRTSCILM" in CREDIT_CORE
+    assert "fred:DRTSCIS" in CREDIT_CORE
+    assert "fred:DRSDCILM" in CREDIT_CORE
+    assert "fred:DRSDCIS" in CREDIT_CORE
+    assert "fred:DRBLACBS" in CREDIT_CORE
+    assert "fred:DRCLACBS" in CREDIT_CORE
+    assert "fred:CORBLACBS" in CREDIT_CORE
+    assert "fred:CORCACBS" in CREDIT_CORE
     assert "yahoo:JNK" in CREDIT_CORE
+
+
+def test_bundle_constants_include_asset_series() -> None:
     assert len(ASSETS_CORE) == EXPECTED_ASSETS_CORE_SIZE
     assert "fred:NASDAQCOM" in ASSETS_CORE
     assert "fred:DEXUSEU" in ASSETS_CORE
@@ -189,6 +211,33 @@ def test_macro_core_bundle_contains_70_point_categories() -> None:
     assert len(MACRO_CORE) >= EXPECTED_MIN_MACRO_CORE_SIZE
 
 
+def test_macro_calendar_core_is_separate_from_numeric_regime_bundle() -> None:
+    assert len(MACRO_CALENDAR_CORE) == EXPECTED_MACRO_CALENDAR_CORE_SIZE
+    assert MACRO_CALENDAR_CORE == [
+        "official_calendar:fomc_decision_next",
+        "official_calendar:bea_gdp_next",
+        "official_calendar:bea_pce_next",
+    ]
+    assert "official_calendar:bls_cpi_next" not in MACRO_CALENDAR_CORE
+    assert not set(MACRO_CALENDAR_CORE).intersection(MACRO_CORE)
+
+
+def test_treasury_auction_core_is_separate_from_numeric_regime_bundle() -> None:
+    assert len(TREASURY_AUCTION_CORE) == EXPECTED_TREASURY_AUCTION_CORE_SIZE
+    assert TREASURY_AUCTION_CORE == [
+        "treasury_auction:2y_high_yield",
+        "treasury_auction:2y_bid_to_cover",
+        "treasury_auction:2y_indirect_bidder_pct",
+        "treasury_auction:10y_high_yield",
+        "treasury_auction:10y_bid_to_cover",
+        "treasury_auction:10y_indirect_bidder_pct",
+        "treasury_auction:30y_high_yield",
+        "treasury_auction:30y_bid_to_cover",
+        "treasury_auction:30y_indirect_bidder_pct",
+    ]
+    assert not set(TREASURY_AUCTION_CORE).intersection(MACRO_CORE)
+
+
 @pytest.mark.parametrize(
     ("bundle_name", "expected_series", "expected_source_chain"),
     [
@@ -197,6 +246,7 @@ def test_macro_core_bundle_contains_70_point_categories() -> None:
         ("volatility-core", VOLATILITY_CORE, ["fred", "yahoo"]),
         ("credit-core", CREDIT_CORE, ["fred", "yahoo"]),
         ("assets-core", ASSETS_CORE, ["fred", "yahoo"]),
+        ("treasury-auction-core", TREASURY_AUCTION_CORE, ["treasury_auction"]),
     ],
 )
 def test_focused_macro_terminal_bundles_collect_observations(
@@ -309,6 +359,17 @@ def test_rates_core_bundle_exposes_missing_api_key_diagnostics() -> None:
         "code": "missing_api_key",
         "retryable": False,
         "message": "FRED_API_KEY is required",
+        "access_mode": "api_key",
+    }
+    assert snapshot.source_health[0] == {
+        "provider": "fred",
+        "requested": EXPECTED_FRED_RATE_FAILURES,
+        "available": 0,
+        "missing": EXPECTED_FRED_RATE_FAILURES,
+        "status": "unavailable",
+        "access_mode": "api_key",
+        "error_codes": ["missing_api_key"],
+        "retryable": False,
     }
 
 
@@ -332,6 +393,48 @@ def test_rates_core_bundle_marks_all_series_missing_unavailable() -> None:
     assert snapshot.data_quality == "unavailable"
     assert snapshot.reason_codes == ["missing_series", "provider_timeout", "all_series_missing"]
     assert len(snapshot.series_errors) == EXPECTED_RATES_CORE_SIZE
+    assert snapshot.source_health == [
+        {
+            "provider": "fred",
+            "requested": EXPECTED_FRED_RATE_FAILURES,
+            "available": 0,
+            "missing": EXPECTED_FRED_RATE_FAILURES,
+            "status": "unavailable",
+            "access_mode": None,
+            "error_codes": ["provider_timeout"],
+            "retryable": True,
+        },
+        {
+            "provider": "nyfed",
+            "requested": 1,
+            "available": 0,
+            "missing": 1,
+            "status": "unavailable",
+            "access_mode": None,
+            "error_codes": ["provider_timeout"],
+            "retryable": True,
+        },
+    ]
+
+
+def test_bundle_history_marks_empty_series_windows_unavailable() -> None:
+    service = MacrodataService(
+        gateway=cast(
+            MacrodataGateway,
+            FakeGateway(range_observations={series_key: [] for series_key in RATES_CORE}),
+        )
+    )
+
+    snapshot = service.bundle_history("rates-core", start="2026-06-01", end="2026-06-30")
+
+    assert snapshot.coverage == {"requested": EXPECTED_RATES_CORE_SIZE, "available": 0}
+    assert snapshot.missing_series == RATES_CORE
+    assert snapshot.series_errors == []
+    assert snapshot.observations == []
+    assert snapshot.data_quality == "unavailable"
+    assert snapshot.reason_codes == ["missing_series", "no_observations", "all_series_missing"]
+    assert snapshot.source_health[0]["status"] == "unavailable"
+    assert snapshot.source_health[0]["error_codes"] == []
 
 
 def test_rates_core_history_coverage_counts_available_series_not_observation_rows() -> None:
