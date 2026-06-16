@@ -98,6 +98,9 @@ def test_catalog_contains_official_calendar_event_series() -> None:
     fomc = catalog.get("official_calendar:fomc_decision_next")
     gdp = catalog.get("official_calendar:bea_gdp_next")
     pce = catalog.get("official_calendar:bea_pce_next")
+    cpi = catalog.get("official_calendar:bls_cpi_next")
+    employment = catalog.get("official_calendar:bls_employment_next")
+    ppi = catalog.get("official_calendar:bls_ppi_next")
 
     assert fomc.provider == "official_calendar"
     assert fomc.unit == "days_until"
@@ -107,9 +110,12 @@ def test_catalog_contains_official_calendar_event_series() -> None:
     assert "FOMC" in fomc.description
     assert gdp.source_url == "https://apps.bea.gov/API/signup/release_dates.json"
     assert pce.provider == "official_calendar"
-    assert "official_calendar:bls_cpi_next" not in keys
-    assert "official_calendar:bls_employment_next" not in keys
-    assert "official_calendar:bls_ppi_next" not in keys
+    assert cpi.source_url == "https://www.bls.gov/schedule/news_release/cpi.htm"
+    assert employment.source_url == "https://www.bls.gov/schedule/news_release/empsit.htm"
+    assert ppi.source_url == "https://www.bls.gov/schedule/news_release/ppi.htm"
+    assert "official_calendar:bls_cpi_next" in keys
+    assert "official_calendar:bls_employment_next" in keys
+    assert "official_calendar:bls_ppi_next" in keys
 
 
 def test_catalog_contains_official_fed_text_series_without_legacy_page_aliases() -> None:

@@ -33,7 +33,7 @@ EXPECTED_ECONOMY_CORE_SIZE = 21
 EXPECTED_VOLATILITY_CORE_SIZE = 9
 EXPECTED_CREDIT_CORE_SIZE = 25
 EXPECTED_ASSETS_CORE_SIZE = 48
-EXPECTED_MACRO_CALENDAR_CORE_SIZE = 3
+EXPECTED_MACRO_CALENDAR_CORE_SIZE = 6
 EXPECTED_FED_TEXT_CORE_SIZE = 4
 EXPECTED_TREASURY_AUCTION_CORE_SIZE = 9
 EXPECTED_FRED_RATE_FAILURES = 8
@@ -219,8 +219,10 @@ def test_macro_calendar_core_is_separate_from_numeric_regime_bundle() -> None:
         "official_calendar:fomc_decision_next",
         "official_calendar:bea_gdp_next",
         "official_calendar:bea_pce_next",
+        "official_calendar:bls_cpi_next",
+        "official_calendar:bls_employment_next",
+        "official_calendar:bls_ppi_next",
     ]
-    assert "official_calendar:bls_cpi_next" not in MACRO_CALENDAR_CORE
     assert not set(MACRO_CALENDAR_CORE).intersection(MACRO_CORE)
 
 

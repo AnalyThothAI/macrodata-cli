@@ -188,6 +188,9 @@ MACRO_CALENDAR_CORE = [
     "official_calendar:fomc_decision_next",
     "official_calendar:bea_gdp_next",
     "official_calendar:bea_pce_next",
+    "official_calendar:bls_cpi_next",
+    "official_calendar:bls_employment_next",
+    "official_calendar:bls_ppi_next",
 ]
 
 FED_TEXT_CORE = [

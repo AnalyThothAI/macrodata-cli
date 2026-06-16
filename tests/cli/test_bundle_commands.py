@@ -25,12 +25,15 @@ TREASURY_AUCTION_URL = (
 CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BEA_RELEASE_DATES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
+BLS_CPI_URL = "https://www.bls.gov/schedule/news_release/cpi.htm"
+BLS_EMPLOYMENT_URL = "https://www.bls.gov/schedule/news_release/empsit.htm"
+BLS_PPI_URL = "https://www.bls.gov/schedule/news_release/ppi.htm"
 FED_MONETARY_POLICY_RSS_URL = "https://www.federalreserve.gov/feeds/press_monetary.xml"
 FED_SPEECHES_RSS_URL = "https://www.federalreserve.gov/feeds/speeches.xml"
 TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
 EXPECTED_RATES_REQUESTED = 9
 EXPECTED_LIQUIDITY_REQUESTED = 7
-EXPECTED_MACRO_CALENDAR_REQUESTED = 3
+EXPECTED_MACRO_CALENDAR_REQUESTED = 6
 EXPECTED_FED_TEXT_REQUESTED = 4
 EXPECTED_TREASURY_AUCTION_REQUESTED = 9
 EXPECTED_MIN_MACRO_REQUESTED = 20
@@ -164,6 +167,19 @@ def mock_treasury_auction() -> None:
     respx.get(TREASURY_AUCTION_URL).mock(side_effect=respond)
 
 
+def mock_bls_calendar() -> None:
+    bls_html = """
+    <html><body><table>
+    <tr><th>Reference Month</th><th>Release Date</th><th>Release Time</th></tr>
+    <tr><td>May 2026</td><td>Jun. 10, 2026</td><td>08:30 AM</td></tr>
+    <tr><td>June 2026</td><td>Jul. 14, 2026</td><td>08:30 AM</td></tr>
+    </table></body></html>
+    """
+    respx.get(BLS_CPI_URL).mock(return_value=Response(200, text=bls_html))
+    respx.get(BLS_EMPLOYMENT_URL).mock(return_value=Response(200, text=bls_html))
+    respx.get(BLS_PPI_URL).mock(return_value=Response(200, text=bls_html))
+
+
 def mock_official_calendar() -> None:
     respx.get(FOMC_CALENDAR_URL).mock(
         return_value=Response(
@@ -187,6 +203,7 @@ def mock_official_calendar() -> None:
             },
         )
     )
+    mock_bls_calendar()
 
 
 def mock_bea_calendar() -> None:
@@ -415,6 +432,9 @@ def test_macro_calendar_core_bundle_fetch_uses_official_sources() -> None:
         "official_calendar:fomc_decision_next",
         "official_calendar:bea_gdp_next",
         "official_calendar:bea_pce_next",
+        "official_calendar:bls_cpi_next",
+        "official_calendar:bls_employment_next",
+        "official_calendar:bls_ppi_next",
     }
 
 
@@ -517,6 +537,7 @@ def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> N
 def test_event_bundle_history_commands_are_first_class_sync_surfaces() -> None:
     mock_official_fed_text()
     mock_bea_calendar()
+    mock_bls_calendar()
     mock_treasury_auction()
 
     calendar_result = CliRunner().invoke(
@@ -543,6 +564,9 @@ def test_event_bundle_history_commands_are_first_class_sync_surfaces() -> None:
         "official_calendar:fomc_decision_next",
         "official_calendar:bea_gdp_next",
         "official_calendar:bea_pce_next",
+        "official_calendar:bls_cpi_next",
+        "official_calendar:bls_employment_next",
+        "official_calendar:bls_ppi_next",
     }
 
     assert fed_text_result.exit_code == 0

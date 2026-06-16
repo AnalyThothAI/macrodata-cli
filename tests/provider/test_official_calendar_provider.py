@@ -12,6 +12,9 @@ from macrodata.providers.official_calendar import OfficialCalendarProvider
 
 FOMC_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BEA_RELEASE_DATES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
+BLS_CPI_URL = "https://www.bls.gov/schedule/news_release/cpi.htm"
+BLS_EMPLOYMENT_URL = "https://www.bls.gov/schedule/news_release/empsit.htm"
+BLS_PPI_URL = "https://www.bls.gov/schedule/news_release/ppi.htm"
 
 
 FOMC_HTML = """
@@ -43,6 +46,17 @@ BEA_JSON = {
 }
 
 JUNE_BEA_DAYS_UNTIL = 9
+JUNE_BLS_CPI_DAYS_UNTIL = 28
+
+BLS_RELEASE_HTML = """
+<html><body>
+<table>
+<tr><th>Reference Month</th><th>Release Date</th><th>Release Time</th></tr>
+<tr><td>May 2026</td><td>Jun. 10, 2026</td><td>08:30 AM</td></tr>
+<tr><td>June 2026</td><td>Jul. 14, 2026</td><td>08:30 AM</td></tr>
+</table>
+</body></html>
+"""
 
 
 @respx.mock
@@ -83,6 +97,30 @@ def test_official_calendar_provider_returns_next_bea_gdp_and_pce_events_from_jso
 
 
 @respx.mock
+def test_official_calendar_provider_returns_next_bls_release_events_from_official_pages() -> None:
+    respx.get(BLS_CPI_URL).mock(return_value=Response(200, text=BLS_RELEASE_HTML))
+    respx.get(BLS_EMPLOYMENT_URL).mock(return_value=Response(200, text=BLS_RELEASE_HTML))
+    respx.get(BLS_PPI_URL).mock(return_value=Response(200, text=BLS_RELEASE_HTML))
+    provider = OfficialCalendarProvider(http_client=MacrodataHttpClient(), today=date(2026, 6, 16))
+
+    cpi = provider.get_latest("bls_cpi_next")
+    employment = provider.get_latest("bls_employment_next")
+    ppi = provider.get_latest("bls_ppi_next")
+
+    assert cpi.series_key == "official_calendar:bls_cpi_next"
+    assert cpi.observed_at == "2026-07-14"
+    assert cpi.value == JUNE_BLS_CPI_DAYS_UNTIL
+    assert cpi.provenance[0]["source_url"] == BLS_CPI_URL
+    assert cpi.provenance[0]["event_title"] == "Consumer Price Index"
+    assert cpi.provenance[0]["event_time_et"] == "08:30 AM"
+    assert cpi.provenance[0]["reference_period"] == "June 2026"
+    assert employment.provenance[0]["source_url"] == BLS_EMPLOYMENT_URL
+    assert employment.provenance[0]["event_title"] == "Employment Situation"
+    assert ppi.provenance[0]["source_url"] == BLS_PPI_URL
+    assert ppi.provenance[0]["event_title"] == "Producer Price Index"
+
+
+@respx.mock
 def test_official_calendar_provider_range_filters_events_by_event_date() -> None:
     respx.get(FOMC_URL).mock(return_value=Response(200, text=FOMC_HTML))
     provider = OfficialCalendarProvider(http_client=MacrodataHttpClient(), today=date(2026, 6, 16))
@@ -92,10 +130,10 @@ def test_official_calendar_provider_range_filters_events_by_event_date() -> None
     assert [observation.observed_at for observation in observations] == ["2026-06-17", "2026-07-29"]
 
 
-def test_official_calendar_provider_hard_deletes_inaccessible_bls_calendar_series() -> None:
+def test_official_calendar_provider_rejects_unknown_calendar_series() -> None:
     provider = OfficialCalendarProvider(http_client=MacrodataHttpClient(), today=date(2026, 6, 16))
 
     with pytest.raises(MacrodataError) as exc_info:
-        provider.get_latest("bls_cpi_next")
+        provider.get_latest("not_real_next")
 
     assert exc_info.value.code == "unknown_series"

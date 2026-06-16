@@ -13,11 +13,23 @@ from macrodata.gateway.http_client import MacrodataHttpClient
 
 FED_FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BEA_RELEASE_DATES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
+BLS_CPI_RELEASE_URL = "https://www.bls.gov/schedule/news_release/cpi.htm"
+BLS_EMPLOYMENT_RELEASE_URL = "https://www.bls.gov/schedule/news_release/empsit.htm"
+BLS_PPI_RELEASE_URL = "https://www.bls.gov/schedule/news_release/ppi.htm"
 
 _NEW_YORK = ZoneInfo("America/New_York")
 _FOMC_YEAR_RE = re.compile(r"^(20\d{2})\s+FOMC\s+Meetings$", re.IGNORECASE)
 _FOMC_DAY_RE = re.compile(r"^(?P<start>\d{1,2})(?:-(?P<end>\d{1,2}))?(?P<sep>\*)?(?:\s+\(.+\))?$")
 _DECEMBER = 12
+_MONTH_DAY_YEAR_PARTS = 3
+_BLS_RELEASE_ROW_RE = re.compile(
+    r"(?P<reference>(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|"
+    r"Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+20\d{2})\s+"
+    r"(?P<release>(?:Jan\.?|January|Feb\.?|February|Mar\.?|March|Apr\.?|April|May|Jun\.?|June|Jul\.?|July|"
+    r"Aug\.?|August|Sep\.?|Sept\.?|September|Oct\.?|October|Nov\.?|November|Dec\.?|December)\s+\d{1,2},\s+20\d{2})\s+"
+    r"(?P<time>\d{2}:\d{2}\s+[AP]M)",
+    re.IGNORECASE,
+)
 
 _MONTHS = {
     "january": 1,
@@ -94,6 +106,33 @@ _DATASETS = {
         title="Personal Income and Outlays",
         match_prefix="Personal Income and Outlays",
         source_url=BEA_RELEASE_DATES_URL,
+        event_time_et=None,
+        importance="high",
+    ),
+    "bls_cpi_next": _CalendarDataset(
+        dataset="bls_cpi_next",
+        source="bls_release_page",
+        title="Consumer Price Index",
+        match_prefix="Consumer Price Index",
+        source_url=BLS_CPI_RELEASE_URL,
+        event_time_et=None,
+        importance="high",
+    ),
+    "bls_employment_next": _CalendarDataset(
+        dataset="bls_employment_next",
+        source="bls_release_page",
+        title="Employment Situation",
+        match_prefix="Employment Situation",
+        source_url=BLS_EMPLOYMENT_RELEASE_URL,
+        event_time_et=None,
+        importance="high",
+    ),
+    "bls_ppi_next": _CalendarDataset(
+        dataset="bls_ppi_next",
+        source="bls_release_page",
+        title="Producer Price Index",
+        match_prefix="Producer Price Index",
+        source_url=BLS_PPI_RELEASE_URL,
         event_time_et=None,
         importance="high",
     ),
@@ -175,6 +214,8 @@ class OfficialCalendarProvider:
             return self._fomc_events(config)
         if config.source == "bea":
             return self._bea_events(config)
+        if config.source == "bls_release_page":
+            return self._bls_events(config)
         raise MacrodataError(
             code="unknown_series",
             message=f"Official calendar source is not supported: {config.source}",
@@ -217,6 +258,31 @@ class OfficialCalendarProvider:
                     importance=config.importance,
                     metadata={"sep": bool(day_match.group("sep"))},
                 )
+            )
+        return events
+
+    def _bls_events(self, config: _CalendarDataset) -> list[_CalendarEvent]:
+        text = " ".join(_html_lines(self._get_text(config.source_url)))
+        events: list[_CalendarEvent] = []
+        for match in _BLS_RELEASE_ROW_RE.finditer(text):
+            release_date = _parse_month_day_year(match.group("release"))
+            events.append(
+                _CalendarEvent(
+                    event_date=release_date,
+                    title=config.title,
+                    time_et=match.group("time").upper(),
+                    source_url=config.source_url,
+                    event_type=config.dataset,
+                    importance=config.importance,
+                    metadata={"reference_period": " ".join(match.group("reference").split())},
+                )
+            )
+        if not events:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message=f"BLS release calendar is missing rows for {config.match_prefix}",
+                retryable=False,
+                provider=self.provider_name,
             )
         return events
 
@@ -335,12 +401,32 @@ def _html_lines(html: str) -> list[str]:
 
 
 def _month_number(value: str) -> int | None:
-    normalized = value.strip().lower()
+    normalized = value.strip().lower().rstrip(".")
     if "/" in normalized:
         parts = [part.strip() for part in normalized.split("/") if part.strip()]
         if parts:
-            normalized = parts[-1]
+            normalized = parts[-1].rstrip(".")
     return _MONTHS.get(normalized)
+
+
+def _parse_month_day_year(raw_value: str) -> date:
+    parts = raw_value.replace(",", "").split()
+    if len(parts) != _MONTH_DAY_YEAR_PARTS:
+        raise MacrodataError(
+            code="provider_parse_error",
+            message=f"BLS release date is invalid: {raw_value}",
+            retryable=False,
+            provider="official_calendar",
+        )
+    month = _month_number(parts[0])
+    if month is None:
+        raise MacrodataError(
+            code="provider_parse_error",
+            message=f"BLS release month is invalid: {raw_value}",
+            retryable=False,
+            provider="official_calendar",
+        )
+    return date(int(parts[2]), month, int(parts[1]))
 
 
 def _parse_bea_datetime(raw_value: object) -> datetime:

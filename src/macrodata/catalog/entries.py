@@ -436,6 +436,24 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
         "Next Personal Income and Outlays/PCE release date from the BEA release-date JSON feed.",
         "https://apps.bea.gov/API/signup/release_dates.json",
     ),
+    _official_calendar(
+        "bls_cpi_next",
+        "Next CPI Release",
+        "Next Consumer Price Index release date from the BLS official release calendar.",
+        "https://www.bls.gov/schedule/news_release/cpi.htm",
+    ),
+    _official_calendar(
+        "bls_employment_next",
+        "Next Employment Situation Release",
+        "Next Employment Situation release date from the BLS official release calendar.",
+        "https://www.bls.gov/schedule/news_release/empsit.htm",
+    ),
+    _official_calendar(
+        "bls_ppi_next",
+        "Next PPI Release",
+        "Next Producer Price Index release date from the BLS official release calendar.",
+        "https://www.bls.gov/schedule/news_release/ppi.htm",
+    ),
     _official_fed_text(
         "fomc_statement_latest",
         "Latest FOMC Statement",
