@@ -28,6 +28,8 @@ TREASURY_AUCTION_URL = (
 )
 TENTATIVE_AUCTION_SCHEDULE_URL = "https://home.treasury.gov/system/files/221/Tentative-Auction-Schedule.xml"
 CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
+VVIX_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VVIX_History.csv"
+SKEW_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/SKEW_History.csv"
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BEA_RELEASE_DATES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
 BLS_CPI_URL = "https://www.bls.gov/schedule/news_release/cpi.htm"
@@ -395,6 +397,11 @@ def mock_yahoo(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("macrodata.providers.yahoo.yf.Ticker", FakeYahooTicker)
 
 
+def mock_cboe() -> None:
+    respx.get(VVIX_URL).mock(return_value=Response(200, text="DATE,VVIX\n05/20/2026,91.340000\n"))
+    respx.get(SKEW_URL).mock(return_value=Response(200, text="DATE,SKEW\n05/20/2026,143.750000\n"))
+
+
 def mock_cftc() -> None:
     respx.get(CFTC_URL).mock(
         return_value=Response(
@@ -459,6 +466,7 @@ def test_macro_core_bundle_command(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_fred()
     mock_nyfed()
     mock_treasury_fiscal()
+    mock_cboe()
     mock_yahoo(monkeypatch)
     mock_cftc()
 
@@ -587,6 +595,7 @@ def test_macro_core_bundle_history_command(monkeypatch: pytest.MonkeyPatch) -> N
     mock_fred_public_csv()
     mock_nyfed()
     mock_treasury_fiscal()
+    mock_cboe()
     mock_yahoo(monkeypatch)
     mock_cftc()
 

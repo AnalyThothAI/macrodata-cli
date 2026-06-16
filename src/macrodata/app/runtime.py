@@ -7,6 +7,7 @@ from macrodata.app.services import MacrodataService
 from macrodata.catalog.registry import CatalogRegistry, default_catalog
 from macrodata.gateway.http_client import MacrodataHttpClient
 from macrodata.gateway.macrodata_gateway import MacrodataGateway
+from macrodata.providers.cboe import CboeIndexProvider
 from macrodata.providers.cftc import CftcProvider
 from macrodata.providers.contracts import SeriesProvider
 from macrodata.providers.fred import FredSeriesProvider
@@ -40,6 +41,7 @@ def build_runtime(
         "nyfed": NyFedMarketsProvider(http_client=http_client),
         "treasury_fiscal": TreasuryFiscalProvider(http_client=http_client),
         "treasury_auction": TreasuryAuctionProvider(http_client=http_client, today=calendar_today),
+        "cboe": CboeIndexProvider(http_client=http_client),
         "yahoo": YahooPriceProvider(timeout_sec=timeout_sec),
         "cftc": CftcProvider(http_client=http_client),
         "official_calendar": OfficialCalendarProvider(http_client=http_client, today=calendar_today),

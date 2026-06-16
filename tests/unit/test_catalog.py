@@ -246,6 +246,8 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     catalog = default_catalog()
 
     vix_3m = catalog.get("fred:VXVCLS")
+    vvix = catalog.get("cboe:VVIX")
+    skew = catalog.get("cboe:SKEW")
     bbb_oas = catalog.get("fred:BAMLC0A4CBBB")
     jobless_claims = catalog.get("fred:ICSA")
     credit_proxy = catalog.get("yahoo:JNK")
@@ -256,6 +258,14 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     assert vix_3m.unit == "index"
     assert vix_3m.frequency == "daily"
     assert "term structure" in vix_3m.description
+    assert vvix.name == "Cboe VIX of VIX Index"
+    assert vvix.provider == "cboe"
+    assert vvix.dataset == "VVIX"
+    assert vvix.source_url == "https://cdn.cboe.com/api/global/us_indices/daily_prices/VVIX_History.csv"
+    assert skew.name == "Cboe SKEW Index"
+    assert skew.provider == "cboe"
+    assert skew.dataset == "SKEW"
+    assert "tail risk" in skew.description
     assert bbb_oas.unit == "percent"
     assert bbb_oas.frequency == "daily"
     assert "BBB" in bbb_oas.name

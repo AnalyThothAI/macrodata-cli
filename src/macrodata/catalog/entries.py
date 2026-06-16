@@ -57,6 +57,22 @@ def _cftc(dataset: str, name: str, description: str) -> SourceCatalogEntry:
     )
 
 
+def _cboe(dataset: str, name: str, description: str) -> SourceCatalogEntry:
+    return SourceCatalogEntry(
+        series_key=f"cboe:{dataset}",
+        name=name,
+        provider="cboe",
+        dataset=dataset,
+        description=description,
+        unit="index",
+        frequency="daily",
+        latency_class="daily",
+        requires_api_key=False,
+        source_url=f"https://cdn.cboe.com/api/global/us_indices/daily_prices/{dataset}_History.csv",
+        license_note="Cboe public index data terms apply.",
+    )
+
+
 def _official_calendar(dataset: str, name: str, description: str, source_url: str) -> SourceCatalogEntry:
     return SourceCatalogEntry(
         series_key=f"official_calendar:{dataset}",
@@ -349,6 +365,16 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
     _fred("GVZCLS", "CBOE Gold ETF Volatility Index", "Gold ETF implied volatility proxy.", "index", "daily"),
     _fred("OVXCLS", "CBOE Crude Oil ETF Volatility Index", "Crude oil ETF implied volatility proxy.", "index", "daily"),
     _fred("EVZCLS", "CBOE EuroCurrency Volatility Index", "Euro currency implied volatility proxy.", "index", "daily"),
+    _cboe(
+        "VVIX",
+        "Cboe VIX of VIX Index",
+        "Cboe volatility-of-volatility index for VIX options and public convexity pressure monitoring.",
+    ),
+    _cboe(
+        "SKEW",
+        "Cboe SKEW Index",
+        "Cboe 30-day S&P 500 option skewness index for public tail risk monitoring.",
+    ),
     _fred("SP500", "S&P 500 Index", "US large-cap equity index level.", "index", "daily"),
     _fred("NASDAQCOM", "NASDAQ Composite Index", "US Nasdaq Composite index level.", "index", "daily"),
     _fred(

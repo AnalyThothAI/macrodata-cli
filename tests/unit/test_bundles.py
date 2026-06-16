@@ -30,7 +30,7 @@ EXPECTED_RATES_CORE_SIZE = 9
 EXPECTED_RATES_MARKET_CORE_SIZE = 32
 EXPECTED_LIQUIDITY_CORE_SIZE = 12
 EXPECTED_ECONOMY_CORE_SIZE = 22
-EXPECTED_VOLATILITY_CORE_SIZE = 10
+EXPECTED_VOLATILITY_CORE_SIZE = 12
 EXPECTED_CREDIT_CORE_SIZE = 25
 EXPECTED_ASSETS_CORE_SIZE = 48
 EXPECTED_MACRO_CALENDAR_CORE_SIZE = 6
@@ -167,6 +167,8 @@ def test_bundle_constants_include_economy_volatility_and_credit_series() -> None
     assert "fred:VIXCLS" in VOLATILITY_CORE
     assert "fred:VXVCLS" in VOLATILITY_CORE
     assert "fred:VXNCLS" in VOLATILITY_CORE
+    assert "cboe:VVIX" in VOLATILITY_CORE
+    assert "cboe:SKEW" in VOLATILITY_CORE
     assert "yahoo:^MOVE" in VOLATILITY_CORE
     assert "yahoo:VIXY" in VOLATILITY_CORE
     assert "yahoo:VIXM" in VOLATILITY_CORE
@@ -276,7 +278,7 @@ def test_treasury_auction_core_is_separate_from_numeric_regime_bundle() -> None:
     [
         ("rates-market-core", RATES_MARKET_CORE, ["fred", "nyfed"]),
         ("economy-core", ECONOMY_CORE, ["fred"]),
-        ("volatility-core", VOLATILITY_CORE, ["fred", "yahoo"]),
+        ("volatility-core", VOLATILITY_CORE, ["fred", "cboe", "yahoo"]),
         ("credit-core", CREDIT_CORE, ["fred", "yahoo"]),
         ("assets-core", ASSETS_CORE, ["fred", "yahoo"]),
         ("fed-text-core", FED_TEXT_CORE, ["official_fed_text"]),
@@ -325,7 +327,7 @@ def test_macro_core_bundle_collects_contract_series_without_real_providers() -> 
     assert snapshot.bundle == "macro-core"
     assert snapshot.coverage == {"requested": len(MACRO_CORE), "available": len(MACRO_CORE)}
     assert snapshot.missing_series == []
-    assert snapshot.source_chain == ["fred", "nyfed", "treasury_fiscal", "yahoo", "cftc"]
+    assert snapshot.source_chain == ["fred", "nyfed", "treasury_fiscal", "cboe", "yahoo", "cftc"]
     assert "stooq" not in snapshot.source_chain
     assert snapshot.data_quality == "ok"
 
