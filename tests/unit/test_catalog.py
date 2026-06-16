@@ -148,10 +148,14 @@ def test_catalog_contains_treasury_auction_result_series() -> None:
     catalog = default_catalog()
     keys = {entry.series_key for entry in catalog.list_entries()}
 
+    two_year_next = catalog.get("treasury_auction:2y_next_auction_days")
     ten_year_bid_to_cover = catalog.get("treasury_auction:10y_bid_to_cover")
     thirty_year_indirect = catalog.get("treasury_auction:30y_indirect_bidder_pct")
 
     assert {
+        "treasury_auction:2y_next_auction_days",
+        "treasury_auction:10y_next_auction_days",
+        "treasury_auction:30y_next_auction_days",
         "treasury_auction:2y_high_yield",
         "treasury_auction:2y_bid_to_cover",
         "treasury_auction:2y_indirect_bidder_pct",
@@ -162,6 +166,12 @@ def test_catalog_contains_treasury_auction_result_series() -> None:
         "treasury_auction:30y_bid_to_cover",
         "treasury_auction:30y_indirect_bidder_pct",
     }.issubset(keys)
+    assert two_year_next.provider == "treasury_auction"
+    assert two_year_next.unit == "days_until"
+    assert two_year_next.frequency == "event"
+    assert two_year_next.requires_api_key is False
+    assert two_year_next.source_url == "https://home.treasury.gov/system/files/221/Tentative-Auction-Schedule.xml"
+    assert "next official 2-year" in two_year_next.description.lower()
     assert ten_year_bid_to_cover.provider == "treasury_auction"
     assert ten_year_bid_to_cover.unit == "ratio"
     assert ten_year_bid_to_cover.frequency == "event"

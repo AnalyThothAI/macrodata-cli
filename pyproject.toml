@@ -1,10 +1,11 @@
 [project]
 name = "macrodata-cli"
-version = "0.1.13"
+version = "0.1.14"
 description = "Agent-friendly macro data CLI, SDK, and MCP server."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "defusedxml>=0.7.1",
     "httpx>=0.27.0",
     "mcp>=1.12.4",
     "platformdirs>=4.3.0",

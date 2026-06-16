@@ -202,6 +202,9 @@ FED_TEXT_CORE = [
 ]
 
 TREASURY_AUCTION_CORE = [
+    "treasury_auction:2y_next_auction_days",
+    "treasury_auction:10y_next_auction_days",
+    "treasury_auction:30y_next_auction_days",
     "treasury_auction:2y_high_yield",
     "treasury_auction:2y_bid_to_cover",
     "treasury_auction:2y_indirect_bidder_pct",

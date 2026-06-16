@@ -39,7 +39,7 @@ def build_runtime(
         "fred": FredSeriesProvider(http_client=http_client, api_key=fred_api_key),
         "nyfed": NyFedMarketsProvider(http_client=http_client),
         "treasury_fiscal": TreasuryFiscalProvider(http_client=http_client),
-        "treasury_auction": TreasuryAuctionProvider(http_client=http_client),
+        "treasury_auction": TreasuryAuctionProvider(http_client=http_client, today=calendar_today),
         "yahoo": YahooPriceProvider(timeout_sec=timeout_sec),
         "cftc": CftcProvider(http_client=http_client),
         "official_calendar": OfficialCalendarProvider(http_client=http_client, today=calendar_today),

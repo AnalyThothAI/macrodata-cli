@@ -35,7 +35,7 @@ EXPECTED_CREDIT_CORE_SIZE = 25
 EXPECTED_ASSETS_CORE_SIZE = 48
 EXPECTED_MACRO_CALENDAR_CORE_SIZE = 6
 EXPECTED_FED_TEXT_CORE_SIZE = 4
-EXPECTED_TREASURY_AUCTION_CORE_SIZE = 9
+EXPECTED_TREASURY_AUCTION_CORE_SIZE = 12
 EXPECTED_FRED_RATE_FAILURES = 8
 EXPECTED_MIN_MACRO_CORE_SIZE = 90
 VALIDATION_EXIT_CODE = 2
@@ -242,6 +242,9 @@ def test_fed_text_core_is_separate_from_numeric_regime_bundle_and_legacy_pages()
 def test_treasury_auction_core_is_separate_from_numeric_regime_bundle() -> None:
     assert len(TREASURY_AUCTION_CORE) == EXPECTED_TREASURY_AUCTION_CORE_SIZE
     assert TREASURY_AUCTION_CORE == [
+        "treasury_auction:2y_next_auction_days",
+        "treasury_auction:10y_next_auction_days",
+        "treasury_auction:30y_next_auction_days",
         "treasury_auction:2y_high_yield",
         "treasury_auction:2y_bid_to_cover",
         "treasury_auction:2y_indirect_bidder_pct",

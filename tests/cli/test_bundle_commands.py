@@ -22,6 +22,7 @@ OPERATING_CASH_BALANCE_URL = (
 TREASURY_AUCTION_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
 )
+TENTATIVE_AUCTION_SCHEDULE_URL = "https://home.treasury.gov/system/files/221/Tentative-Auction-Schedule.xml"
 CFTC_URL = "https://www.cftc.gov/dea/newcot/FinFutWk.txt"
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BEA_RELEASE_DATES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
@@ -35,10 +36,48 @@ EXPECTED_RATES_REQUESTED = 9
 EXPECTED_LIQUIDITY_REQUESTED = 7
 EXPECTED_MACRO_CALENDAR_REQUESTED = 6
 EXPECTED_FED_TEXT_REQUESTED = 4
-EXPECTED_TREASURY_AUCTION_REQUESTED = 9
+EXPECTED_TREASURY_AUCTION_REQUESTED = 12
 EXPECTED_MIN_MACRO_REQUESTED = 20
 VALIDATION_EXIT_CODE = 2
 YAHOO_CLOSE = 604.25
+
+TENTATIVE_AUCTION_SCHEDULE_XML = """<?xml version="1.0" encoding="UTF-8" ?>
+<AuctionCalendar>
+  <AuctionCalendarName>May2026 Refunding Auction Calendar Official Ver2</AuctionCalendarName>
+  <StartDate>2026-05-06</StartDate>
+  <EndDate>2026-10-31</EndDate>
+  <AuctionCalendarDate>
+    <SecurityTermWeekYear>2-Year</SecurityTermWeekYear>
+    <SecurityType>NOTE</SecurityType>
+    <ReOpeningIndicator>N</ReOpeningIndicator>
+    <TIPS>N</TIPS>
+    <FloatingRate>N</FloatingRate>
+    <AnnouncementDate>2026-06-18</AnnouncementDate>
+    <AuctionDate>2026-06-23</AuctionDate>
+    <SettlementDate>2026-06-30</SettlementDate>
+  </AuctionCalendarDate>
+  <AuctionCalendarDate>
+    <SecurityTermWeekYear>10-Year</SecurityTermWeekYear>
+    <SecurityType>NOTE</SecurityType>
+    <ReOpeningIndicator>Y</ReOpeningIndicator>
+    <TIPS>N</TIPS>
+    <FloatingRate>N</FloatingRate>
+    <AnnouncementDate>2026-07-02</AnnouncementDate>
+    <AuctionDate>2026-07-07</AuctionDate>
+    <SettlementDate>2026-07-15</SettlementDate>
+  </AuctionCalendarDate>
+  <AuctionCalendarDate>
+    <SecurityTermWeekYear>30-Year</SecurityTermWeekYear>
+    <SecurityType>BOND</SecurityType>
+    <ReOpeningIndicator>Y</ReOpeningIndicator>
+    <TIPS>N</TIPS>
+    <FloatingRate>N</FloatingRate>
+    <AnnouncementDate>2026-07-02</AnnouncementDate>
+    <AuctionDate>2026-07-08</AuctionDate>
+    <SettlementDate>2026-07-15</SettlementDate>
+  </AuctionCalendarDate>
+</AuctionCalendar>
+"""
 
 
 def mock_fred() -> None:
@@ -165,6 +204,9 @@ def mock_treasury_auction() -> None:
         )
 
     respx.get(TREASURY_AUCTION_URL).mock(side_effect=respond)
+    respx.get(TENTATIVE_AUCTION_SCHEDULE_URL).mock(
+        return_value=Response(200, text=TENTATIVE_AUCTION_SCHEDULE_XML)
+    )
 
 
 def mock_bls_calendar() -> None:
@@ -460,6 +502,9 @@ def test_treasury_auction_core_bundle_fetch_uses_official_fiscaldata() -> None:
     assert snapshot["missing_series"] == []
     assert snapshot["data_quality"] == "ok"
     assert {item["series_key"] for item in snapshot["observations"]} == {
+        "treasury_auction:2y_next_auction_days",
+        "treasury_auction:10y_next_auction_days",
+        "treasury_auction:30y_next_auction_days",
         "treasury_auction:2y_high_yield",
         "treasury_auction:2y_bid_to_cover",
         "treasury_auction:2y_indirect_bidder_pct",
@@ -550,7 +595,7 @@ def test_event_bundle_history_commands_are_first_class_sync_surfaces() -> None:
     )
     auction_result = CliRunner().invoke(
         app,
-        ["bundle", "history", "treasury-auction-core", "--start", "2026-06-01", "--end", "2026-06-30"],
+        ["bundle", "history", "treasury-auction-core", "--start", "2026-06-01", "--end", "2026-07-31"],
     )
 
     assert calendar_result.exit_code == 0
@@ -594,6 +639,9 @@ def test_event_bundle_history_commands_are_first_class_sync_surfaces() -> None:
         "available": EXPECTED_TREASURY_AUCTION_REQUESTED,
     }
     assert {item["series_key"] for item in auction_snapshot["observations"]} == {
+        "treasury_auction:2y_next_auction_days",
+        "treasury_auction:10y_next_auction_days",
+        "treasury_auction:30y_next_auction_days",
         "treasury_auction:2y_high_yield",
         "treasury_auction:2y_bid_to_cover",
         "treasury_auction:2y_indirect_bidder_pct",

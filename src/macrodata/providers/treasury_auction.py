@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
+from defusedxml import ElementTree as ET
+
 from macrodata.core.errors import MacrodataError
 from macrodata.core.models import MacroObservation, ProviderSmokeResult
 from macrodata.gateway.http_client import MacrodataHttpClient
@@ -12,6 +14,7 @@ from macrodata.gateway.http_client import MacrodataHttpClient
 TREASURY_AUCTION_QUERY_URL = (
     "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
 )
+TENTATIVE_AUCTION_SCHEDULE_URL = "https://home.treasury.gov/system/files/221/Tentative-Auction-Schedule.xml"
 
 
 @dataclass(frozen=True)
@@ -22,6 +25,25 @@ class _AuctionMetricConfig:
     label: str
     unit: str
     parse_value: Callable[[dict[str, Any]], float]
+
+
+@dataclass(frozen=True)
+class _AuctionCalendarConfig:
+    tenor: str
+    security_type: str
+    dataset: str
+
+
+@dataclass(frozen=True)
+class _AuctionCalendarEvent:
+    auction_date: date
+    announcement_date: date
+    settlement_date: date
+    security_term: str
+    security_type: str
+    reopening: bool
+    tips: bool
+    floating_rate: bool
 
 
 def _metric_configs() -> dict[str, _AuctionMetricConfig]:
@@ -58,14 +80,54 @@ def _metric_configs() -> dict[str, _AuctionMetricConfig]:
     return configs
 
 
+def _calendar_configs() -> dict[str, _AuctionCalendarConfig]:
+    return {
+        "2y_next_auction_days": _AuctionCalendarConfig(
+            tenor="2-Year",
+            security_type="NOTE",
+            dataset="2y_next_auction_days",
+        ),
+        "10y_next_auction_days": _AuctionCalendarConfig(
+            tenor="10-Year",
+            security_type="NOTE",
+            dataset="10y_next_auction_days",
+        ),
+        "30y_next_auction_days": _AuctionCalendarConfig(
+            tenor="30-Year",
+            security_type="BOND",
+            dataset="30y_next_auction_days",
+        ),
+    }
+
+
 class TreasuryAuctionProvider:
     provider_name = "treasury_auction"
     auction_query_url = TREASURY_AUCTION_QUERY_URL
+    tentative_schedule_url = TENTATIVE_AUCTION_SCHEDULE_URL
 
-    def __init__(self, *, http_client: MacrodataHttpClient) -> None:
+    def __init__(self, *, http_client: MacrodataHttpClient, today: date | None = None) -> None:
         self._http_client = http_client
+        self._today = today
+        self._text_cache: dict[str, str] = {}
 
     def get_latest(self, dataset: str) -> MacroObservation:
+        calendar_config = CALENDAR_CONFIGS.get(dataset)
+        if calendar_config is not None:
+            today = self._current_date()
+            future_events = [event for event in self._calendar_events(calendar_config) if event.auction_date >= today]
+            if future_events:
+                return self._calendar_observation(
+                    dataset=calendar_config.dataset,
+                    event=min(future_events, key=lambda item: item.auction_date),
+                )
+            raise MacrodataError(
+                code="no_data",
+                message=f"Treasury tentative auction schedule returned no future {calendar_config.tenor} auction",
+                retryable=True,
+                provider=self.provider_name,
+                exit_code=4,
+            )
+
         config = self._config(dataset)
         rows = self._fetch_rows(
             config,
@@ -86,6 +148,16 @@ class TreasuryAuctionProvider:
         )
 
     def get_range(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
+        calendar_config = CALENDAR_CONFIGS.get(dataset)
+        if calendar_config is not None:
+            start_date = _parse_request_date(start, label="start")
+            end_date = _parse_request_date(end, label="end")
+            return [
+                self._calendar_observation(dataset=calendar_config.dataset, event=event)
+                for event in sorted(self._calendar_events(calendar_config), key=lambda item: item.auction_date)
+                if start_date <= event.auction_date <= end_date
+            ]
+
         config = self._config(dataset)
         rows = self._fetch_rows(
             config,
@@ -167,6 +239,91 @@ class TreasuryAuctionProvider:
                 continue
             observations.append(_observation(dataset=dataset, config=config, row=row, value=value))
         return sorted(observations, key=lambda observation: observation.observed_at, reverse=True)
+
+    def _calendar_events(self, config: _AuctionCalendarConfig) -> list[_AuctionCalendarEvent]:
+        try:
+            root = ET.fromstring(self._get_text(self.tentative_schedule_url))
+        except ET.ParseError as exc:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message="Treasury tentative auction schedule XML is invalid",
+                retryable=False,
+                provider=self.provider_name,
+            ) from exc
+
+        events: list[_AuctionCalendarEvent] = []
+        for element in root.iter():
+            if _local_name(element.tag) != "AuctionCalendarDate":
+                continue
+            security_term = _child_text(element, "SecurityTermWeekYear")
+            security_type = _child_text(element, "SecurityType").upper()
+            tips = _parse_flag(_child_text(element, "TIPS"))
+            floating_rate = _parse_flag(_child_text(element, "FloatingRate"))
+            if (
+                security_term != config.tenor
+                or security_type != config.security_type
+                or tips
+                or floating_rate
+            ):
+                continue
+            events.append(
+                _AuctionCalendarEvent(
+                    auction_date=_parse_date_value(_child_text(element, "AuctionDate"), field="AuctionDate"),
+                    announcement_date=_parse_date_value(
+                        _child_text(element, "AnnouncementDate"),
+                        field="AnnouncementDate",
+                    ),
+                    settlement_date=_parse_date_value(_child_text(element, "SettlementDate"), field="SettlementDate"),
+                    security_term=security_term,
+                    security_type=security_type,
+                    reopening=_parse_flag(_child_text(element, "ReOpeningIndicator")),
+                    tips=tips,
+                    floating_rate=floating_rate,
+                )
+            )
+        return events
+
+    def _calendar_observation(self, *, dataset: str, event: _AuctionCalendarEvent) -> MacroObservation:
+        today = self._current_date()
+        return MacroObservation(
+            series_key=f"treasury_auction:{dataset}",
+            provider="treasury_auction",
+            dataset=dataset,
+            observed_at=event.auction_date.isoformat(),
+            value=(event.auction_date - today).days,
+            unit="days_until",
+            frequency="event",
+            source_ts=today.isoformat(),
+            realtime_start=None,
+            realtime_end=None,
+            latency_class="calendar",
+            data_quality="ok",
+            provenance=[
+                {
+                    "provider": "treasury_auction",
+                    "source_url": TENTATIVE_AUCTION_SCHEDULE_URL,
+                    "security_type": event.security_type,
+                    "security_term": event.security_term,
+                    "announcement_date": event.announcement_date.isoformat(),
+                    "auction_date": event.auction_date.isoformat(),
+                    "settlement_date": event.settlement_date.isoformat(),
+                    "reopening": event.reopening,
+                    "tips": event.tips,
+                    "floating_rate": event.floating_rate,
+                }
+            ],
+        )
+
+    def _get_text(self, url: str) -> str:
+        cached = self._text_cache.get(url)
+        if cached is not None:
+            return cached
+        text = self._http_client.get_text(url, provider=self.provider_name)
+        self._text_cache[url] = text
+        return text
+
+    def _current_date(self) -> date:
+        return self._today or datetime.now(UTC).date()
 
 
 def _filter(config: _AuctionMetricConfig) -> str:
@@ -265,8 +422,57 @@ def _parse_date(raw_value: Any, *, field: str) -> str:
         ) from exc
 
 
+def _parse_request_date(raw_value: str, *, label: str) -> date:
+    try:
+        return date.fromisoformat(raw_value)
+    except ValueError as exc:
+        raise MacrodataError(
+            code="provider_invalid_request",
+            message=f"Treasury auction {label} date is invalid: {raw_value}",
+            retryable=False,
+            provider="treasury_auction",
+            exit_code=2,
+        ) from exc
+
+
+def _parse_date_value(raw_value: Any, *, field: str) -> date:
+    value = _string(raw_value)
+    if not value:
+        raise MacrodataError(
+            code="provider_parse_error",
+            message=f"Treasury tentative auction schedule {field} is missing",
+            retryable=False,
+            provider="treasury_auction",
+        )
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise MacrodataError(
+            code="provider_parse_error",
+            message=f"Treasury tentative auction schedule {field} is invalid: {value}",
+            retryable=False,
+            provider="treasury_auction",
+        ) from exc
+
+
+def _child_text(element: ET.Element, tag: str) -> str:
+    for child in element:
+        if _local_name(child.tag) == tag:
+            return _string(child.text)
+    return ""
+
+
+def _local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _parse_flag(raw_value: Any) -> bool:
+    return _string(raw_value).upper() in {"Y", "YES", "TRUE", "1"}
+
+
 def _string(raw_value: Any) -> str:
     return "" if raw_value is None else str(raw_value).strip()
 
 
 AUCTION_METRIC_CONFIGS = _metric_configs()
+CALENDAR_CONFIGS = _calendar_configs()

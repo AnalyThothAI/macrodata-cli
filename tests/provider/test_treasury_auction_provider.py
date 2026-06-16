@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 import respx
 from httpx import Response
@@ -9,10 +11,71 @@ from macrodata.gateway.http_client import MacrodataHttpClient
 from macrodata.providers.treasury_auction import TreasuryAuctionProvider
 
 AUCTION_URL = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
+TENTATIVE_AUCTION_SCHEDULE_URL = "https://home.treasury.gov/system/files/221/Tentative-Auction-Schedule.xml"
 EXPECTED_BID_TO_COVER = 2.4
 EXPECTED_HIGH_YIELD = 5.015
 EXPECTED_INDIRECT_BIDDER_PCT = 40.0
+EXPECTED_2Y_NEXT_DAYS_UNTIL = 7
+EXPECTED_10Y_NEXT_DAYS_UNTIL = 21
 UNKNOWN_SERIES_EXIT_CODE = 2
+
+TENTATIVE_AUCTION_SCHEDULE_XML = """<?xml version="1.0" encoding="UTF-8" ?>
+<AuctionCalendar>
+  <AuctionCalendarName>May2026 Refunding Auction Calendar Official Ver2</AuctionCalendarName>
+  <StartDate>2026-05-06</StartDate>
+  <EndDate>2026-10-31</EndDate>
+  <AuctionCalendarDate>
+    <SecurityTermWeekYear>10-Year</SecurityTermWeekYear>
+    <SecurityType>NOTE</SecurityType>
+    <ReOpeningIndicator>N</ReOpeningIndicator>
+    <TIPS>N</TIPS>
+    <FloatingRate>N</FloatingRate>
+    <AnnouncementDate>2026-06-04</AnnouncementDate>
+    <AuctionDate>2026-06-09</AuctionDate>
+    <SettlementDate>2026-06-16</SettlementDate>
+  </AuctionCalendarDate>
+  <AuctionCalendarDate>
+    <SecurityTermWeekYear>2-Year</SecurityTermWeekYear>
+    <SecurityType>NOTE</SecurityType>
+    <ReOpeningIndicator>N</ReOpeningIndicator>
+    <TIPS>N</TIPS>
+    <FloatingRate>N</FloatingRate>
+    <AnnouncementDate>2026-06-18</AnnouncementDate>
+    <AuctionDate>2026-06-23</AuctionDate>
+    <SettlementDate>2026-06-30</SettlementDate>
+  </AuctionCalendarDate>
+  <AuctionCalendarDate>
+    <SecurityTermWeekYear>10-Year</SecurityTermWeekYear>
+    <SecurityType>NOTE</SecurityType>
+    <ReOpeningIndicator>Y</ReOpeningIndicator>
+    <TIPS>N</TIPS>
+    <FloatingRate>N</FloatingRate>
+    <AnnouncementDate>2026-07-02</AnnouncementDate>
+    <AuctionDate>2026-07-07</AuctionDate>
+    <SettlementDate>2026-07-15</SettlementDate>
+  </AuctionCalendarDate>
+  <AuctionCalendarDate>
+    <SecurityTermWeekYear>30-Year</SecurityTermWeekYear>
+    <SecurityType>BOND</SecurityType>
+    <ReOpeningIndicator>Y</ReOpeningIndicator>
+    <TIPS>N</TIPS>
+    <FloatingRate>N</FloatingRate>
+    <AnnouncementDate>2026-07-02</AnnouncementDate>
+    <AuctionDate>2026-07-08</AuctionDate>
+    <SettlementDate>2026-07-15</SettlementDate>
+  </AuctionCalendarDate>
+  <AuctionCalendarDate>
+    <SecurityTermWeekYear>10-Year</SecurityTermWeekYear>
+    <SecurityType>NOTE</SecurityType>
+    <ReOpeningIndicator>Y</ReOpeningIndicator>
+    <TIPS>Y</TIPS>
+    <FloatingRate>N</FloatingRate>
+    <AnnouncementDate>2026-07-17</AnnouncementDate>
+    <AuctionDate>2026-07-22</AuctionDate>
+    <SettlementDate>2026-07-31</SettlementDate>
+  </AuctionCalendarDate>
+</AuctionCalendar>
+"""
 
 
 def _row(
@@ -108,6 +171,46 @@ def test_treasury_auction_range_parses_high_yield_and_indirect_bidder_share() ->
     assert indirect_pct[0].series_key == "treasury_auction:30y_indirect_bidder_pct"
     assert indirect_pct[0].value == EXPECTED_INDIRECT_BIDDER_PCT
     assert indirect_pct[0].unit == "percent"
+
+
+@respx.mock
+def test_treasury_auction_latest_returns_next_nominal_auction_from_official_tentative_schedule() -> None:
+    respx.get(TENTATIVE_AUCTION_SCHEDULE_URL).mock(return_value=Response(200, text=TENTATIVE_AUCTION_SCHEDULE_XML))
+    provider = TreasuryAuctionProvider(http_client=MacrodataHttpClient(), today=date(2026, 6, 16))
+
+    observation = provider.get_latest("2y_next_auction_days")
+
+    assert observation.series_key == "treasury_auction:2y_next_auction_days"
+    assert observation.provider == "treasury_auction"
+    assert observation.dataset == "2y_next_auction_days"
+    assert observation.observed_at == "2026-06-23"
+    assert observation.source_ts == "2026-06-16"
+    assert observation.value == EXPECTED_2Y_NEXT_DAYS_UNTIL
+    assert observation.unit == "days_until"
+    assert observation.frequency == "event"
+    assert observation.latency_class == "calendar"
+    assert observation.data_quality == "ok"
+    assert observation.provenance[0]["source_url"] == TENTATIVE_AUCTION_SCHEDULE_URL
+    assert observation.provenance[0]["security_type"] == "NOTE"
+    assert observation.provenance[0]["security_term"] == "2-Year"
+    assert observation.provenance[0]["announcement_date"] == "2026-06-18"
+    assert observation.provenance[0]["settlement_date"] == "2026-06-30"
+    assert observation.provenance[0]["reopening"] is False
+    assert observation.provenance[0]["tips"] is False
+    assert observation.provenance[0]["floating_rate"] is False
+
+
+@respx.mock
+def test_treasury_auction_range_returns_nominal_auction_calendar_without_tips_rows() -> None:
+    respx.get(TENTATIVE_AUCTION_SCHEDULE_URL).mock(return_value=Response(200, text=TENTATIVE_AUCTION_SCHEDULE_XML))
+    provider = TreasuryAuctionProvider(http_client=MacrodataHttpClient(), today=date(2026, 6, 16))
+
+    observations = provider.get_range("10y_next_auction_days", start="2026-06-16", end="2026-07-31")
+
+    assert [observation.observed_at for observation in observations] == ["2026-07-07"]
+    assert observations[0].series_key == "treasury_auction:10y_next_auction_days"
+    assert observations[0].value == EXPECTED_10Y_NEXT_DAYS_UNTIL
+    assert observations[0].provenance[0]["reopening"] is True
 
 
 def test_treasury_auction_rejects_unknown_dataset_structured() -> None:

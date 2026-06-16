@@ -89,7 +89,21 @@ def _official_fed_text(dataset: str, name: str, description: str, source_url: st
     )
 
 
-def _treasury_auction(dataset: str, name: str, description: str, unit: str) -> SourceCatalogEntry:
+TREASURY_AUCTION_QUERY_URL = (
+    "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query"
+)
+TENTATIVE_AUCTION_SCHEDULE_URL = "https://home.treasury.gov/system/files/221/Tentative-Auction-Schedule.xml"
+
+
+def _treasury_auction(
+    dataset: str,
+    name: str,
+    description: str,
+    unit: str,
+    *,
+    latency_class: str = "event",
+    source_url: str = TREASURY_AUCTION_QUERY_URL,
+) -> SourceCatalogEntry:
     return SourceCatalogEntry(
         series_key=f"treasury_auction:{dataset}",
         name=name,
@@ -98,10 +112,10 @@ def _treasury_auction(dataset: str, name: str, description: str, unit: str) -> S
         description=description,
         unit=unit,
         frequency="event",
-        latency_class="event",
+        latency_class=latency_class,
         requires_api_key=False,
-        source_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/od/auctions_query",
-        license_note="U.S. Treasury FiscalData public API terms apply.",
+        source_url=source_url,
+        license_note="U.S. Treasury public source terms apply.",
     )
 
 
@@ -478,6 +492,30 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
         "Latest Fed Speech",
         "Latest official Federal Reserve speech from the public RSS feed.",
         "https://www.federalreserve.gov/feeds/speeches.xml",
+    ),
+    _treasury_auction(
+        "2y_next_auction_days",
+        "Next 2-Year Treasury Auction",
+        "Days until the next official 2-year nominal Treasury note auction in the tentative schedule.",
+        "days_until",
+        latency_class="calendar",
+        source_url=TENTATIVE_AUCTION_SCHEDULE_URL,
+    ),
+    _treasury_auction(
+        "10y_next_auction_days",
+        "Next 10-Year Treasury Auction",
+        "Days until the next official 10-year nominal Treasury note auction in the tentative schedule.",
+        "days_until",
+        latency_class="calendar",
+        source_url=TENTATIVE_AUCTION_SCHEDULE_URL,
+    ),
+    _treasury_auction(
+        "30y_next_auction_days",
+        "Next 30-Year Treasury Auction",
+        "Days until the next official 30-year nominal Treasury bond auction in the tentative schedule.",
+        "days_until",
+        latency_class="calendar",
+        source_url=TENTATIVE_AUCTION_SCHEDULE_URL,
     ),
     _treasury_auction(
         "2y_high_yield",
