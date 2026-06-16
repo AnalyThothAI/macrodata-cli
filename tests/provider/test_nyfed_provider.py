@@ -10,11 +10,14 @@ from macrodata.gateway.http_client import MacrodataHttpClient
 from macrodata.providers.nyfed import NyFedMarketsProvider
 
 SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
+BGCR_URL = "https://markets.newyorkfed.org/api/rates/secured/bgcr/search.json"
+TGCR_URL = "https://markets.newyorkfed.org/api/rates/secured/tgcr/search.json"
 RRP_URL = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
 SRF_URL = "https://markets.newyorkfed.org/api/rp/results/search.json"
 EXPECTED_SOFR = 4.31
 EXPECTED_RRP_MILLIONS = 3281.0
 EXPECTED_SRF_MILLIONS = 4.0
+EXPECTED_VOLUME_MILLIONS = 3_023_000.0
 UNKNOWN_SERIES_EXIT_CODE = 2
 
 
@@ -49,6 +52,95 @@ def test_nyfed_sofr_parses_latest_rate() -> None:
     assert observations[0].latency_class == "daily"
     assert observations[0].data_quality == "ok"
     assert observations[0].provenance == [{"provider": "nyfed", "source_url": SOFR_URL}]
+
+
+@pytest.mark.parametrize(
+    ("dataset", "url", "series_key", "value"),
+    [
+        ("BGCR", BGCR_URL, "nyfed:BGCR", 4.29),
+        ("TGCR", TGCR_URL, "nyfed:TGCR", 4.28),
+    ],
+)
+@respx.mock
+def test_nyfed_secured_reference_rates_parse_repo_depth_series(
+    dataset: str, url: str, series_key: str, value: float
+) -> None:
+    route = respx.get(url).mock(
+        return_value=Response(
+            200,
+            json={
+                "refRates": [
+                    {
+                        "effectiveDate": "2026-05-20",
+                        "type": dataset,
+                        "percentRate": value,
+                        "percentPercentile1": value - 0.02,
+                        "percentPercentile25": value - 0.01,
+                        "percentPercentile75": value + 0.01,
+                        "percentPercentile99": value + 0.03,
+                    }
+                ]
+            },
+        )
+    )
+    provider = NyFedMarketsProvider(http_client=MacrodataHttpClient())
+
+    observations = provider.get_range(dataset, start="2026-05-20", end="2026-05-20")
+
+    assert route.called
+    assert observations[0].series_key == series_key
+    assert observations[0].provider == "nyfed"
+    assert observations[0].dataset == dataset
+    assert observations[0].observed_at == "2026-05-20"
+    assert observations[0].value == value
+    assert observations[0].unit == "percent"
+    assert observations[0].frequency == "daily"
+    assert observations[0].latency_class == "daily"
+    assert observations[0].data_quality == "ok"
+    assert observations[0].provenance == [{"provider": "nyfed", "source_url": url}]
+
+
+@pytest.mark.parametrize(
+    ("dataset", "url", "series_key"),
+    [
+        ("SOFR_VOLUME", SOFR_URL, "nyfed:SOFR_VOLUME"),
+        ("BGCR_VOLUME", BGCR_URL, "nyfed:BGCR_VOLUME"),
+        ("TGCR_VOLUME", TGCR_URL, "nyfed:TGCR_VOLUME"),
+    ],
+)
+@respx.mock
+def test_nyfed_secured_reference_rate_volumes_parse_as_millions(
+    dataset: str, url: str, series_key: str
+) -> None:
+    route = respx.get(url).mock(
+        return_value=Response(
+            200,
+            json={
+                "refRates": [
+                    {
+                        "effectiveDate": "2026-05-20",
+                        "type": dataset.removesuffix("_VOLUME"),
+                        "volumeInBillions": 3023,
+                    }
+                ]
+            },
+        )
+    )
+    provider = NyFedMarketsProvider(http_client=MacrodataHttpClient())
+
+    observations = provider.get_range(dataset, start="2026-05-20", end="2026-05-20")
+
+    assert route.called
+    assert observations[0].series_key == series_key
+    assert observations[0].provider == "nyfed"
+    assert observations[0].dataset == dataset
+    assert observations[0].observed_at == "2026-05-20"
+    assert observations[0].value == EXPECTED_VOLUME_MILLIONS
+    assert observations[0].unit == "millions_usd"
+    assert observations[0].frequency == "daily"
+    assert observations[0].latency_class == "daily"
+    assert observations[0].data_quality == "ok"
+    assert observations[0].provenance == [{"provider": "nyfed", "source_url": url}]
 
 
 @respx.mock

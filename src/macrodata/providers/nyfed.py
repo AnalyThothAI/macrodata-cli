@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from macrodata.core.errors import MacrodataError
 from macrodata.core.models import MacroObservation, ProviderSmokeResult
@@ -10,7 +10,12 @@ from macrodata.gateway.http_client import MacrodataHttpClient
 
 class NyFedMarketsProvider:
     provider_name = "nyfed"
-    sofr_url = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
+    reference_rate_urls: ClassVar[dict[str, str]] = {
+        "SOFR": "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json",
+        "BGCR": "https://markets.newyorkfed.org/api/rates/secured/bgcr/search.json",
+        "TGCR": "https://markets.newyorkfed.org/api/rates/secured/tgcr/search.json",
+    }
+    sofr_url = reference_rate_urls["SOFR"]
     reverse_repo_url = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
     repo_results_url = "https://markets.newyorkfed.org/api/rp/results/search.json"
 
@@ -29,8 +34,10 @@ class NyFedMarketsProvider:
         return observations[-1]
 
     def get_range(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
-        if dataset == "SOFR":
-            return self._get_sofr_range(start=start, end=end)
+        if dataset in self.reference_rate_urls:
+            return self._get_reference_rate_range(dataset, start=start, end=end)
+        if dataset.endswith("_VOLUME") and dataset.removesuffix("_VOLUME") in self.reference_rate_urls:
+            return self._get_reference_rate_volume_range(dataset, start=start, end=end)
         if dataset == "RRP":
             return self._get_reverse_repo_range(start=start, end=end)
         if dataset == "SRF":
@@ -42,9 +49,9 @@ class NyFedMarketsProvider:
             exit_code=2,
         )
 
-    def _get_sofr_range(self, *, start: str, end: str) -> list[MacroObservation]:
+    def _get_reference_rate_range(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
         payload = self._http_client.get_json(
-            self.sofr_url,
+            self.reference_rate_urls[dataset],
             params={"startDate": start, "endDate": end, "type": "rate"},
             provider="nyfed",
         )
@@ -60,10 +67,35 @@ class NyFedMarketsProvider:
             if not isinstance(row, dict):
                 raise MacrodataError(
                     code="provider_parse_error",
-                    message=f"NY Fed refRates row {index} for SOFR must be an object",
+                    message=f"NY Fed refRates row {index} for {dataset} must be an object",
                     provider="nyfed",
                 )
-            observations.append(self._parse_sofr(row))
+            observations.append(self._parse_reference_rate(dataset, row))
+        return sorted(observations, key=lambda observation: observation.observed_at)
+
+    def _get_reference_rate_volume_range(self, dataset: str, *, start: str, end: str) -> list[MacroObservation]:
+        rate_dataset = dataset.removesuffix("_VOLUME")
+        payload = self._http_client.get_json(
+            self.reference_rate_urls[rate_dataset],
+            params={"startDate": start, "endDate": end, "type": "volume"},
+            provider="nyfed",
+        )
+        rows = payload.get("refRates", [])
+        if not isinstance(rows, list):
+            raise MacrodataError(
+                code="provider_parse_error",
+                message="NY Fed refRates must be a list",
+                provider="nyfed",
+            )
+        observations: list[MacroObservation] = []
+        for index, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise MacrodataError(
+                    code="provider_parse_error",
+                    message=f"NY Fed refRates row {index} for {dataset} must be an object",
+                    provider="nyfed",
+                )
+            observations.append(self._parse_reference_rate_volume(dataset, row))
         return sorted(observations, key=lambda observation: observation.observed_at)
 
     def _get_reverse_repo_range(self, *, start: str, end: str) -> list[MacroObservation]:
@@ -165,13 +197,13 @@ class NyFedMarketsProvider:
             sample_source_ts=latest.source_ts,
         )
 
-    def _parse_sofr(self, row: dict[str, Any]) -> MacroObservation:
-        observed_at = self._parse_effective_date(row.get("effectiveDate"))
-        value = self._parse_percent_rate(observed_at=observed_at, raw_value=row.get("percentRate"))
+    def _parse_reference_rate(self, dataset: str, row: dict[str, Any]) -> MacroObservation:
+        observed_at = self._parse_effective_date(dataset, row.get("effectiveDate"))
+        value = self._parse_percent_rate(dataset=dataset, observed_at=observed_at, raw_value=row.get("percentRate"))
         return MacroObservation(
-            series_key="nyfed:SOFR",
+            series_key=f"nyfed:{dataset}",
             provider="nyfed",
-            dataset="SOFR",
+            dataset=dataset,
             observed_at=observed_at,
             value=value,
             unit="percent",
@@ -181,7 +213,31 @@ class NyFedMarketsProvider:
             realtime_end=None,
             latency_class="daily",
             data_quality="ok",
-            provenance=[{"provider": "nyfed", "source_url": self.sofr_url}],
+            provenance=[{"provider": "nyfed", "source_url": self.reference_rate_urls[dataset]}],
+        )
+
+    def _parse_reference_rate_volume(self, dataset: str, row: dict[str, Any]) -> MacroObservation:
+        rate_dataset = dataset.removesuffix("_VOLUME")
+        observed_at = self._parse_effective_date(dataset, row.get("effectiveDate"))
+        value = self._parse_volume_millions(
+            dataset=dataset,
+            observed_at=observed_at,
+            raw_value=row.get("volumeInBillions"),
+        )
+        return MacroObservation(
+            series_key=f"nyfed:{dataset}",
+            provider="nyfed",
+            dataset=dataset,
+            observed_at=observed_at,
+            value=value,
+            unit="millions_usd",
+            frequency="daily",
+            source_ts=observed_at,
+            realtime_start=None,
+            realtime_end=None,
+            latency_class="daily",
+            data_quality="ok",
+            provenance=[{"provider": "nyfed", "source_url": self.reference_rate_urls[rate_dataset]}],
         )
 
     def _parse_reverse_repo(self, row: dict[str, Any]) -> MacroObservation:
@@ -207,12 +263,12 @@ class NyFedMarketsProvider:
             provenance=[{"provider": "nyfed", "source_url": self.reverse_repo_url}],
         )
 
-    def _parse_effective_date(self, raw_value: Any) -> str:
+    def _parse_effective_date(self, dataset: str, raw_value: Any) -> str:
         observed_at = "" if raw_value is None else str(raw_value).strip()
         if not observed_at:
             raise MacrodataError(
                 code="provider_parse_error",
-                message="NY Fed SOFR effectiveDate is missing",
+                message=f"NY Fed {dataset} effectiveDate is missing",
                 retryable=False,
                 provider="nyfed",
             )
@@ -221,7 +277,7 @@ class NyFedMarketsProvider:
         except ValueError as exc:
             raise MacrodataError(
                 code="provider_parse_error",
-                message=f"NY Fed SOFR effectiveDate is invalid: {observed_at}",
+                message=f"NY Fed {dataset} effectiveDate is invalid: {observed_at}",
                 retryable=False,
                 provider="nyfed",
             ) from exc
@@ -245,13 +301,24 @@ class NyFedMarketsProvider:
                 provider="nyfed",
             ) from exc
 
-    def _parse_percent_rate(self, *, observed_at: str, raw_value: Any) -> float:
+    def _parse_percent_rate(self, *, dataset: str, observed_at: str, raw_value: Any) -> float:
         try:
             return float(str(raw_value))
         except (TypeError, ValueError) as exc:
             raise MacrodataError(
                 code="provider_parse_error",
-                message=f"NY Fed SOFR value on {observed_at or 'unknown date'} is not numeric",
+                message=f"NY Fed {dataset} value on {observed_at or 'unknown date'} is not numeric",
+                retryable=False,
+                provider="nyfed",
+            ) from exc
+
+    def _parse_volume_millions(self, *, dataset: str, observed_at: str, raw_value: Any) -> float:
+        try:
+            return float(str(raw_value)) * 1_000.0
+        except (TypeError, ValueError) as exc:
+            raise MacrodataError(
+                code="provider_parse_error",
+                message=f"NY Fed {dataset} volume on {observed_at or 'unknown date'} is not numeric",
                 retryable=False,
                 provider="nyfed",
             ) from exc

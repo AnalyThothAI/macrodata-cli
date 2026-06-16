@@ -32,6 +32,11 @@ LIQUIDITY_CORE = [
     "nyfed:RRP",
     "nyfed:SRF",
     "nyfed:SOFR",
+    "nyfed:BGCR",
+    "nyfed:TGCR",
+    "nyfed:SOFR_VOLUME",
+    "nyfed:BGCR_VOLUME",
+    "nyfed:TGCR_VOLUME",
     "treasury_fiscal:operating_cash_balance",
 ]
 

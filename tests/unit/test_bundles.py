@@ -28,7 +28,7 @@ EXPECTED_SINGLE_REQUESTED = 1
 EXPECTED_SINGLE_AVAILABLE = 1
 EXPECTED_RATES_CORE_SIZE = 9
 EXPECTED_RATES_MARKET_CORE_SIZE = 28
-EXPECTED_LIQUIDITY_CORE_SIZE = 7
+EXPECTED_LIQUIDITY_CORE_SIZE = 12
 EXPECTED_ECONOMY_CORE_SIZE = 22
 EXPECTED_VOLATILITY_CORE_SIZE = 10
 EXPECTED_CREDIT_CORE_SIZE = 25
@@ -141,6 +141,11 @@ def test_bundle_constants_include_rates_and_liquidity_series() -> None:
     assert len(LIQUIDITY_CORE) == EXPECTED_LIQUIDITY_CORE_SIZE
     assert "nyfed:RRP" in LIQUIDITY_CORE
     assert "nyfed:SRF" in LIQUIDITY_CORE
+    assert "nyfed:BGCR" in LIQUIDITY_CORE
+    assert "nyfed:TGCR" in LIQUIDITY_CORE
+    assert "nyfed:SOFR_VOLUME" in LIQUIDITY_CORE
+    assert "nyfed:BGCR_VOLUME" in LIQUIDITY_CORE
+    assert "nyfed:TGCR_VOLUME" in LIQUIDITY_CORE
     assert "treasury_fiscal:operating_cash_balance" in LIQUIDITY_CORE
 
 
@@ -202,6 +207,9 @@ def test_macro_core_bundle_contains_70_point_categories() -> None:
     assert "fred:DGS10" in MACRO_CORE
     assert "fred:IORB" in MACRO_CORE
     assert "nyfed:SOFR" in MACRO_CORE
+    assert "nyfed:SOFR_VOLUME" in MACRO_CORE
+    assert "nyfed:BGCR" in MACRO_CORE
+    assert "nyfed:TGCR" in MACRO_CORE
     assert "nyfed:SRF" in MACRO_CORE
     assert "fred:VIXCLS" in MACRO_CORE
     assert "fred:BAMLH0A0HYM2" in MACRO_CORE

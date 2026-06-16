@@ -14,6 +14,8 @@ from macrodata.surfaces.cli import app
 FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
 FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
+BGCR_URL = "https://markets.newyorkfed.org/api/rates/secured/bgcr/search.json"
+TGCR_URL = "https://markets.newyorkfed.org/api/rates/secured/tgcr/search.json"
 RRP_URL = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
 SRF_URL = "https://markets.newyorkfed.org/api/rp/results/search.json"
 OPERATING_CASH_BALANCE_URL = (
@@ -33,7 +35,7 @@ FED_MONETARY_POLICY_RSS_URL = "https://www.federalreserve.gov/feeds/press_moneta
 FED_SPEECHES_RSS_URL = "https://www.federalreserve.gov/feeds/speeches.xml"
 TGA_CLOSING_BALANCE_ACCOUNT_TYPE = "Treasury General Account (TGA) Closing Balance"
 EXPECTED_RATES_REQUESTED = 9
-EXPECTED_LIQUIDITY_REQUESTED = 7
+EXPECTED_LIQUIDITY_REQUESTED = 12
 EXPECTED_MACRO_CALENDAR_REQUESTED = 6
 EXPECTED_FED_TEXT_REQUESTED = 4
 EXPECTED_TREASURY_AUCTION_REQUESTED = 12
@@ -111,12 +113,39 @@ def mock_fred_public_csv_http_error() -> None:
 
 
 def mock_nyfed() -> None:
-    respx.get(SOFR_URL).mock(
-        return_value=Response(
-            200,
-            json={"refRates": [{"effectiveDate": "2026-05-20", "percentRate": "4.31"}]},
-        )
-    )
+    def reference_rate_response(dataset: str, rate: str, volume: str) -> Any:
+        def respond(request: Request) -> Response:
+            if request.url.params.get("type") == "volume":
+                return Response(
+                    200,
+                    json={
+                        "refRates": [
+                            {
+                                "effectiveDate": "2026-05-20",
+                                "type": dataset,
+                                "volumeInBillions": volume,
+                            }
+                        ]
+                    },
+                )
+            return Response(
+                200,
+                json={
+                    "refRates": [
+                        {
+                            "effectiveDate": "2026-05-20",
+                            "type": dataset,
+                            "percentRate": rate,
+                        }
+                    ]
+                },
+            )
+
+        return respond
+
+    respx.get(SOFR_URL).mock(side_effect=reference_rate_response("SOFR", "4.31", "3023"))
+    respx.get(BGCR_URL).mock(side_effect=reference_rate_response("BGCR", "4.30", "791"))
+    respx.get(TGCR_URL).mock(side_effect=reference_rate_response("TGCR", "4.29", "612"))
     respx.get(RRP_URL).mock(
         return_value=Response(
             200,

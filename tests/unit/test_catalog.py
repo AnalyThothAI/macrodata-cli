@@ -15,6 +15,25 @@ def test_default_catalog_contains_rates_core_series() -> None:
     assert "treasury_fiscal:operating_cash_balance" in keys
 
 
+def test_catalog_contains_nyfed_repo_depth_series() -> None:
+    catalog = default_catalog()
+
+    expected = {
+        "nyfed:BGCR": ("Broad General Collateral Rate", "percent"),
+        "nyfed:TGCR": ("Tri-Party General Collateral Rate", "percent"),
+        "nyfed:SOFR_VOLUME": ("SOFR Underlying Volume", "millions_usd"),
+        "nyfed:BGCR_VOLUME": ("BGCR Underlying Volume", "millions_usd"),
+        "nyfed:TGCR_VOLUME": ("TGCR Underlying Volume", "millions_usd"),
+    }
+    for series_key, (name, unit) in expected.items():
+        entry = catalog.get(series_key)
+        assert entry.provider == "nyfed"
+        assert entry.name == name
+        assert entry.unit == unit
+        assert entry.frequency == "daily"
+        assert entry.requires_api_key is False
+
+
 def test_catalog_contains_macro_core_series() -> None:
     catalog = default_catalog()
     keys = {entry.series_key for entry in catalog.list_entries()}
@@ -33,6 +52,11 @@ def test_catalog_contains_macro_core_series() -> None:
         "fred:T5YIE",
         "fred:T5YIFR",
         "fred:EFFR",
+        "nyfed:BGCR",
+        "nyfed:TGCR",
+        "nyfed:SOFR_VOLUME",
+        "nyfed:BGCR_VOLUME",
+        "nyfed:TGCR_VOLUME",
         "fred:MICH",
         "fred:GDP",
         "fred:GDPC1",

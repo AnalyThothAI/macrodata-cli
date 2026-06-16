@@ -43,4 +43,4 @@ def test_runtime_wires_treasury_auction_provider() -> None:
 
 
 def test_package_version_advances_for_treasury_auction_calendar_release() -> None:
-    assert version("macrodata-cli") == "0.1.15"
+    assert version("macrodata-cli") == "0.1.16"
