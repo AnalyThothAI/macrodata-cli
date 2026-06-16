@@ -42,5 +42,5 @@ def test_runtime_wires_treasury_auction_provider() -> None:
     assert isinstance(runtime.gateway.provider("treasury_auction"), TreasuryAuctionProvider)
 
 
-def test_package_version_advances_for_treasury_auction_calendar_release() -> None:
-    assert version("macrodata-cli") == "0.1.16"
+def test_package_version_advances_for_unsecured_funding_release() -> None:
+    assert version("macrodata-cli") == "0.1.17"

@@ -34,6 +34,24 @@ def test_catalog_contains_nyfed_repo_depth_series() -> None:
         assert entry.requires_api_key is False
 
 
+def test_catalog_contains_nyfed_unsecured_funding_series() -> None:
+    catalog = default_catalog()
+
+    expected = {
+        "nyfed:EFFR": ("Effective Federal Funds Rate", "percent"),
+        "nyfed:OBFR": ("Overnight Bank Funding Rate", "percent"),
+        "nyfed:EFFR_VOLUME": ("EFFR Underlying Volume", "millions_usd"),
+        "nyfed:OBFR_VOLUME": ("OBFR Underlying Volume", "millions_usd"),
+    }
+    for series_key, (name, unit) in expected.items():
+        entry = catalog.get(series_key)
+        assert entry.provider == "nyfed"
+        assert entry.name == name
+        assert entry.unit == unit
+        assert entry.frequency == "daily"
+        assert entry.requires_api_key is False
+
+
 def test_catalog_contains_macro_core_series() -> None:
     catalog = default_catalog()
     keys = {entry.series_key for entry in catalog.list_entries()}
@@ -57,6 +75,10 @@ def test_catalog_contains_macro_core_series() -> None:
         "nyfed:SOFR_VOLUME",
         "nyfed:BGCR_VOLUME",
         "nyfed:TGCR_VOLUME",
+        "nyfed:EFFR",
+        "nyfed:OBFR",
+        "nyfed:EFFR_VOLUME",
+        "nyfed:OBFR_VOLUME",
         "fred:MICH",
         "fred:GDP",
         "fred:GDPC1",

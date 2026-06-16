@@ -14,6 +14,8 @@ class NyFedMarketsProvider:
         "SOFR": "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json",
         "BGCR": "https://markets.newyorkfed.org/api/rates/secured/bgcr/search.json",
         "TGCR": "https://markets.newyorkfed.org/api/rates/secured/tgcr/search.json",
+        "EFFR": "https://markets.newyorkfed.org/api/rates/unsecured/effr/search.json",
+        "OBFR": "https://markets.newyorkfed.org/api/rates/unsecured/obfr/search.json",
     }
     sofr_url = reference_rate_urls["SOFR"]
     reverse_repo_url = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"

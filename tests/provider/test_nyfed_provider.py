@@ -12,6 +12,8 @@ from macrodata.providers.nyfed import NyFedMarketsProvider
 SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
 BGCR_URL = "https://markets.newyorkfed.org/api/rates/secured/bgcr/search.json"
 TGCR_URL = "https://markets.newyorkfed.org/api/rates/secured/tgcr/search.json"
+EFFR_URL = "https://markets.newyorkfed.org/api/rates/unsecured/effr/search.json"
+OBFR_URL = "https://markets.newyorkfed.org/api/rates/unsecured/obfr/search.json"
 RRP_URL = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
 SRF_URL = "https://markets.newyorkfed.org/api/rp/results/search.json"
 EXPECTED_SOFR = 4.31
@@ -59,10 +61,12 @@ def test_nyfed_sofr_parses_latest_rate() -> None:
     [
         ("BGCR", BGCR_URL, "nyfed:BGCR", 4.29),
         ("TGCR", TGCR_URL, "nyfed:TGCR", 4.28),
+        ("EFFR", EFFR_URL, "nyfed:EFFR", 4.27),
+        ("OBFR", OBFR_URL, "nyfed:OBFR", 4.26),
     ],
 )
 @respx.mock
-def test_nyfed_secured_reference_rates_parse_repo_depth_series(
+def test_nyfed_reference_rates_parse_funding_depth_series(
     dataset: str, url: str, series_key: str, value: float
 ) -> None:
     route = respx.get(url).mock(
@@ -106,10 +110,12 @@ def test_nyfed_secured_reference_rates_parse_repo_depth_series(
         ("SOFR_VOLUME", SOFR_URL, "nyfed:SOFR_VOLUME"),
         ("BGCR_VOLUME", BGCR_URL, "nyfed:BGCR_VOLUME"),
         ("TGCR_VOLUME", TGCR_URL, "nyfed:TGCR_VOLUME"),
+        ("EFFR_VOLUME", EFFR_URL, "nyfed:EFFR_VOLUME"),
+        ("OBFR_VOLUME", OBFR_URL, "nyfed:OBFR_VOLUME"),
     ],
 )
 @respx.mock
-def test_nyfed_secured_reference_rate_volumes_parse_as_millions(
+def test_nyfed_reference_rate_volumes_parse_as_millions(
     dataset: str, url: str, series_key: str
 ) -> None:
     route = respx.get(url).mock(

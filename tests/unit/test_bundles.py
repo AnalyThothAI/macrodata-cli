@@ -27,7 +27,7 @@ from macrodata.gateway.macrodata_gateway import MacrodataGateway
 EXPECTED_SINGLE_REQUESTED = 1
 EXPECTED_SINGLE_AVAILABLE = 1
 EXPECTED_RATES_CORE_SIZE = 9
-EXPECTED_RATES_MARKET_CORE_SIZE = 28
+EXPECTED_RATES_MARKET_CORE_SIZE = 32
 EXPECTED_LIQUIDITY_CORE_SIZE = 12
 EXPECTED_ECONOMY_CORE_SIZE = 22
 EXPECTED_VOLATILITY_CORE_SIZE = 10
@@ -137,6 +137,10 @@ def test_bundle_constants_include_rates_and_liquidity_series() -> None:
     assert "fred:DFII5" in RATES_MARKET_CORE
     assert "fred:MICH" in RATES_MARKET_CORE
     assert "nyfed:SOFR" in RATES_MARKET_CORE
+    assert "nyfed:EFFR" in RATES_MARKET_CORE
+    assert "nyfed:OBFR" in RATES_MARKET_CORE
+    assert "nyfed:EFFR_VOLUME" in RATES_MARKET_CORE
+    assert "nyfed:OBFR_VOLUME" in RATES_MARKET_CORE
     assert "fred:SOFR30DAYAVG" in RATES_MARKET_CORE
     assert len(LIQUIDITY_CORE) == EXPECTED_LIQUIDITY_CORE_SIZE
     assert "nyfed:RRP" in LIQUIDITY_CORE

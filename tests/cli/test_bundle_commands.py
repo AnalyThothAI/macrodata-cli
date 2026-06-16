@@ -16,6 +16,8 @@ FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
 SOFR_URL = "https://markets.newyorkfed.org/api/rates/secured/sofr/search.json"
 BGCR_URL = "https://markets.newyorkfed.org/api/rates/secured/bgcr/search.json"
 TGCR_URL = "https://markets.newyorkfed.org/api/rates/secured/tgcr/search.json"
+EFFR_URL = "https://markets.newyorkfed.org/api/rates/unsecured/effr/search.json"
+OBFR_URL = "https://markets.newyorkfed.org/api/rates/unsecured/obfr/search.json"
 RRP_URL = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
 SRF_URL = "https://markets.newyorkfed.org/api/rp/results/search.json"
 OPERATING_CASH_BALANCE_URL = (
@@ -146,6 +148,8 @@ def mock_nyfed() -> None:
     respx.get(SOFR_URL).mock(side_effect=reference_rate_response("SOFR", "4.31", "3023"))
     respx.get(BGCR_URL).mock(side_effect=reference_rate_response("BGCR", "4.30", "791"))
     respx.get(TGCR_URL).mock(side_effect=reference_rate_response("TGCR", "4.29", "612"))
+    respx.get(EFFR_URL).mock(side_effect=reference_rate_response("EFFR", "4.27", "102"))
+    respx.get(OBFR_URL).mock(side_effect=reference_rate_response("OBFR", "4.26", "196"))
     respx.get(RRP_URL).mock(
         return_value=Response(
             200,
