@@ -180,6 +180,13 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
     _fred(
         "GDPC1", "Real Gross Domestic Product", "Real US gross domestic product.", "billions_chained_usd", "quarterly"
     ),
+    _fred(
+        "GDPNOW",
+        "GDPNow",
+        "Atlanta Fed GDPNow running estimate of real GDP growth.",
+        "percent_saar",
+        "irregular",
+    ),
     _fred("GDPDEF", "GDP Deflator", "US GDP implicit price deflator.", "index", "quarterly"),
     _fred("PAYEMS", "All Employees, Total Nonfarm", "US nonfarm payroll employment.", "thousands_persons", "monthly"),
     _fred("UNRATE", "Unemployment Rate", "US civilian unemployment rate.", "percent", "monthly"),

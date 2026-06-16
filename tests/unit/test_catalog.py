@@ -36,6 +36,7 @@ def test_catalog_contains_macro_core_series() -> None:
         "fred:MICH",
         "fred:GDP",
         "fred:GDPC1",
+        "fred:GDPNOW",
         "fred:PAYEMS",
         "fred:UNRATE",
         "fred:ICSA",
@@ -89,6 +90,17 @@ def test_catalog_contains_macro_core_series() -> None:
     }.issubset(keys)
     assert "stooq:spy.us" not in keys
     assert "fred:WILL5000INDFC" not in keys
+
+
+def test_catalog_contains_gdpnow_nowcast_series() -> None:
+    catalog = default_catalog()
+    gdpnow = catalog.get("fred:GDPNOW")
+
+    assert gdpnow.name == "GDPNow"
+    assert gdpnow.provider == "fred"
+    assert gdpnow.dataset == "GDPNOW"
+    assert gdpnow.unit == "percent_saar"
+    assert "Atlanta Fed" in gdpnow.description
 
 
 def test_catalog_contains_official_calendar_event_series() -> None:

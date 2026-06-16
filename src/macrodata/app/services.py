@@ -72,6 +72,7 @@ RATES_MARKET_CORE = _unique(
 ECONOMY_CORE = [
     "fred:GDP",
     "fred:GDPC1",
+    "fred:GDPNOW",
     "fred:GDPDEF",
     "fred:PAYEMS",
     "fred:UNRATE",
