@@ -181,6 +181,7 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     bbb_oas = catalog.get("fred:BAMLC0A4CBBB")
     jobless_claims = catalog.get("fred:ICSA")
     credit_proxy = catalog.get("yahoo:JNK")
+    move_proxy = catalog.get("yahoo:^MOVE")
     vix_mid_term_proxy = catalog.get("yahoo:VIXM")
 
     assert vix_3m.name == "CBOE S&P 500 3-Month Volatility Index"
@@ -193,6 +194,11 @@ def test_catalog_documents_public_macro_terminal_proxies() -> None:
     assert jobless_claims.frequency == "weekly"
     assert credit_proxy.provider == "yahoo"
     assert credit_proxy.dataset == "JNK"
+    assert move_proxy.name == "ICE BofA MOVE Index"
+    assert move_proxy.provider == "yahoo"
+    assert move_proxy.dataset == "^MOVE"
+    assert "rates volatility" in move_proxy.description
+    assert "unofficial library" in move_proxy.license_note
     assert vix_mid_term_proxy.name == "ProShares VIX Mid-Term Futures ETF"
     assert vix_mid_term_proxy.provider == "yahoo"
     assert vix_mid_term_proxy.dataset == "VIXM"

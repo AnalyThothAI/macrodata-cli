@@ -409,6 +409,7 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
     _yahoo("USDJPY=X", "USD/JPY", "US dollar to Japanese yen spot FX proxy."),
     _yahoo("USDCNY=X", "USD/CNY", "US dollar to Chinese yuan spot FX proxy."),
     _yahoo("USDKRW=X", "USD/KRW", "US dollar to Korean won spot FX proxy."),
+    _yahoo("^MOVE", "ICE BofA MOVE Index", "rates volatility index proxy from Yahoo Finance."),
     _yahoo("VIXY", "ProShares VIX Short-Term Futures ETF", "Short-term VIX futures ETF proxy."),
     _yahoo("VIXM", "ProShares VIX Mid-Term Futures ETF", "Mid-term VIX futures ETF proxy."),
     _yahoo("BTC-USD", "Bitcoin USD", "Bitcoin spot USD price proxy."),

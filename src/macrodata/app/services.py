@@ -101,6 +101,7 @@ VOLATILITY_CORE = [
     "fred:GVZCLS",
     "fred:OVXCLS",
     "fred:EVZCLS",
+    "yahoo:^MOVE",
     "yahoo:VIXY",
     "yahoo:VIXM",
 ]
