@@ -9,8 +9,10 @@ from httpx import Response
 from macrodata.app.runtime import build_runtime
 from macrodata.core.errors import ValidationError
 from macrodata.providers.cftc import CftcProvider
+from macrodata.providers.deribit import DeribitPublicMarketProvider
 from macrodata.providers.official_calendar import OfficialCalendarProvider
 from macrodata.providers.official_fed_text import OfficialFedTextProvider
+from macrodata.providers.okx import OkxPublicDataProvider
 from macrodata.providers.treasury_auction import TreasuryAuctionProvider
 from macrodata.providers.yahoo import YahooPriceProvider
 
@@ -31,6 +33,13 @@ def test_runtime_wires_macro_core_proxy_providers() -> None:
     assert isinstance(runtime.gateway.provider("yahoo"), YahooPriceProvider)
     assert isinstance(runtime.gateway.provider("cftc"), CftcProvider)
     assert runtime.gateway.provider("cboe") is not None
+
+
+def test_runtime_wires_okx_and_deribit_crypto_derivatives_providers() -> None:
+    runtime = build_runtime()
+
+    assert isinstance(runtime.gateway.provider("okx"), OkxPublicDataProvider)
+    assert isinstance(runtime.gateway.provider("deribit"), DeribitPublicMarketProvider)
 
 
 @pytest.mark.parametrize(
@@ -103,5 +112,5 @@ def test_runtime_rejects_unknown_cboe_dataset() -> None:
         runtime.gateway.fetch_latest("cboe:NOT_REAL")
 
 
-def test_package_version_advances_for_cboe_volatility_release() -> None:
-    assert version("macrodata-cli") == "0.1.20"
+def test_package_version_advances_for_crypto_derivatives_release() -> None:
+    assert version("macrodata-cli") == "0.1.21"

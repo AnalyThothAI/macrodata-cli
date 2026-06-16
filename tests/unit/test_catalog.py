@@ -242,6 +242,37 @@ def test_catalog_contains_treasury_auction_result_series() -> None:
     assert "indirect bidder" in thirty_year_indirect.description
 
 
+def test_catalog_contains_okx_deribit_crypto_derivatives_series() -> None:
+    catalog = default_catalog()
+    keys = {entry.series_key for entry in catalog.list_entries()}
+
+    expected = {
+        "okx:BTC-USDT-SWAP:open_interest_usd": ("OKX BTC-USDT Swap Open Interest", "usd"),
+        "okx:BTC-USDT-SWAP:funding_rate": ("OKX BTC-USDT Swap Funding Rate", "rate"),
+        "okx:BTC-USDT-SWAP:basis_pct": ("OKX BTC-USDT Swap Mark Basis", "percent"),
+        "okx:ETH-USDT-SWAP:open_interest_usd": ("OKX ETH-USDT Swap Open Interest", "usd"),
+        "okx:ETH-USDT-SWAP:funding_rate": ("OKX ETH-USDT Swap Funding Rate", "rate"),
+        "okx:ETH-USDT-SWAP:basis_pct": ("OKX ETH-USDT Swap Mark Basis", "percent"),
+        "deribit:BTC-PERPETUAL:open_interest_usd": ("Deribit BTC Perpetual Open Interest", "usd"),
+        "deribit:BTC-PERPETUAL:funding_8h": ("Deribit BTC Perpetual 8h Funding", "rate"),
+        "deribit:BTC-PERPETUAL:basis_pct": ("Deribit BTC Perpetual Mark Basis", "percent"),
+        "deribit:BTC:volatility_index": ("Deribit BTC Volatility Index", "index"),
+        "deribit:ETH-PERPETUAL:open_interest_usd": ("Deribit ETH Perpetual Open Interest", "usd"),
+        "deribit:ETH-PERPETUAL:funding_8h": ("Deribit ETH Perpetual 8h Funding", "rate"),
+        "deribit:ETH-PERPETUAL:basis_pct": ("Deribit ETH Perpetual Mark Basis", "percent"),
+        "deribit:ETH:volatility_index": ("Deribit ETH Volatility Index", "index"),
+    }
+
+    assert set(expected).issubset(keys)
+    for series_key, (name, unit) in expected.items():
+        entry = catalog.get(series_key)
+        assert entry.name == name
+        assert entry.unit == unit
+        assert entry.frequency == "intraday"
+        assert entry.latency_class == "realtime"
+        assert entry.requires_api_key is False
+
+
 def test_catalog_documents_public_macro_terminal_proxies() -> None:
     catalog = default_catalog()
 

@@ -9,6 +9,7 @@ import pytest
 from macrodata.app.services import (
     ASSETS_CORE,
     CREDIT_CORE,
+    CRYPTO_DERIVATIVES_CORE,
     ECONOMY_CORE,
     FED_TEXT_CORE,
     LIQUIDITY_CORE,
@@ -33,6 +34,7 @@ EXPECTED_ECONOMY_CORE_SIZE = 22
 EXPECTED_VOLATILITY_CORE_SIZE = 14
 EXPECTED_CREDIT_CORE_SIZE = 25
 EXPECTED_ASSETS_CORE_SIZE = 48
+EXPECTED_CRYPTO_DERIVATIVES_CORE_SIZE = 14
 EXPECTED_MACRO_CALENDAR_CORE_SIZE = 6
 EXPECTED_FED_TEXT_CORE_SIZE = 4
 EXPECTED_TREASURY_AUCTION_CORE_SIZE = 12
@@ -231,6 +233,27 @@ def test_macro_core_bundle_contains_70_point_categories() -> None:
     assert len(MACRO_CORE) >= EXPECTED_MIN_MACRO_CORE_SIZE
 
 
+def test_crypto_derivatives_core_is_source_backed_and_separate_from_macro_core() -> None:
+    assert len(CRYPTO_DERIVATIVES_CORE) == EXPECTED_CRYPTO_DERIVATIVES_CORE_SIZE
+    assert CRYPTO_DERIVATIVES_CORE == [
+        "okx:BTC-USDT-SWAP:open_interest_usd",
+        "okx:BTC-USDT-SWAP:funding_rate",
+        "okx:BTC-USDT-SWAP:basis_pct",
+        "okx:ETH-USDT-SWAP:open_interest_usd",
+        "okx:ETH-USDT-SWAP:funding_rate",
+        "okx:ETH-USDT-SWAP:basis_pct",
+        "deribit:BTC-PERPETUAL:open_interest_usd",
+        "deribit:BTC-PERPETUAL:funding_8h",
+        "deribit:BTC-PERPETUAL:basis_pct",
+        "deribit:BTC:volatility_index",
+        "deribit:ETH-PERPETUAL:open_interest_usd",
+        "deribit:ETH-PERPETUAL:funding_8h",
+        "deribit:ETH-PERPETUAL:basis_pct",
+        "deribit:ETH:volatility_index",
+    ]
+    assert not set(CRYPTO_DERIVATIVES_CORE).intersection(MACRO_CORE)
+
+
 def test_macro_calendar_core_is_separate_from_numeric_regime_bundle() -> None:
     assert len(MACRO_CALENDAR_CORE) == EXPECTED_MACRO_CALENDAR_CORE_SIZE
     assert MACRO_CALENDAR_CORE == [
@@ -283,6 +306,7 @@ def test_treasury_auction_core_is_separate_from_numeric_regime_bundle() -> None:
         ("volatility-core", VOLATILITY_CORE, ["fred", "cboe", "yahoo"]),
         ("credit-core", CREDIT_CORE, ["fred", "yahoo"]),
         ("assets-core", ASSETS_CORE, ["fred", "yahoo"]),
+        ("crypto-derivatives-core", CRYPTO_DERIVATIVES_CORE, ["okx", "deribit"]),
         ("fed-text-core", FED_TEXT_CORE, ["official_fed_text"]),
         ("treasury-auction-core", TREASURY_AUCTION_CORE, ["treasury_auction"]),
     ],

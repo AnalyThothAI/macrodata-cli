@@ -10,10 +10,12 @@ from macrodata.gateway.macrodata_gateway import MacrodataGateway
 from macrodata.providers.cboe import CboeIndexProvider
 from macrodata.providers.cftc import CftcProvider
 from macrodata.providers.contracts import SeriesProvider
+from macrodata.providers.deribit import DeribitPublicMarketProvider
 from macrodata.providers.fred import FredSeriesProvider
 from macrodata.providers.nyfed import NyFedMarketsProvider
 from macrodata.providers.official_calendar import OfficialCalendarProvider
 from macrodata.providers.official_fed_text import OfficialFedTextProvider
+from macrodata.providers.okx import OkxPublicDataProvider
 from macrodata.providers.treasury_auction import TreasuryAuctionProvider
 from macrodata.providers.treasury_fiscal import TreasuryFiscalProvider
 from macrodata.providers.yahoo import YahooPriceProvider
@@ -42,6 +44,8 @@ def build_runtime(
         "treasury_fiscal": TreasuryFiscalProvider(http_client=http_client),
         "treasury_auction": TreasuryAuctionProvider(http_client=http_client, today=calendar_today),
         "cboe": CboeIndexProvider(http_client=http_client),
+        "okx": OkxPublicDataProvider(http_client=http_client),
+        "deribit": DeribitPublicMarketProvider(http_client=http_client),
         "yahoo": YahooPriceProvider(timeout_sec=timeout_sec),
         "cftc": CftcProvider(http_client=http_client),
         "official_calendar": OfficialCalendarProvider(http_client=http_client, today=calendar_today),

@@ -199,6 +199,23 @@ ASSETS_CORE = [
     "yahoo:ETH-USD",
 ]
 
+CRYPTO_DERIVATIVES_CORE = [
+    "okx:BTC-USDT-SWAP:open_interest_usd",
+    "okx:BTC-USDT-SWAP:funding_rate",
+    "okx:BTC-USDT-SWAP:basis_pct",
+    "okx:ETH-USDT-SWAP:open_interest_usd",
+    "okx:ETH-USDT-SWAP:funding_rate",
+    "okx:ETH-USDT-SWAP:basis_pct",
+    "deribit:BTC-PERPETUAL:open_interest_usd",
+    "deribit:BTC-PERPETUAL:funding_8h",
+    "deribit:BTC-PERPETUAL:basis_pct",
+    "deribit:BTC:volatility_index",
+    "deribit:ETH-PERPETUAL:open_interest_usd",
+    "deribit:ETH-PERPETUAL:funding_8h",
+    "deribit:ETH-PERPETUAL:basis_pct",
+    "deribit:ETH:volatility_index",
+]
+
 MACRO_CALENDAR_CORE = [
     "official_calendar:fomc_decision_next",
     "official_calendar:bea_gdp_next",
@@ -250,6 +267,7 @@ BUNDLES = {
     "volatility-core": VOLATILITY_CORE,
     "credit-core": CREDIT_CORE,
     "assets-core": ASSETS_CORE,
+    "crypto-derivatives-core": CRYPTO_DERIVATIVES_CORE,
     "macro-calendar-core": MACRO_CALENDAR_CORE,
     "fed-text-core": FED_TEXT_CORE,
     "treasury-auction-core": TREASURY_AUCTION_CORE,

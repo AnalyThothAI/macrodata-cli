@@ -73,6 +73,38 @@ def _cboe(dataset: str, name: str, description: str) -> SourceCatalogEntry:
     )
 
 
+def _okx_derivative(dataset: str, name: str, description: str, unit: str, source_url: str) -> SourceCatalogEntry:
+    return SourceCatalogEntry(
+        series_key=f"okx:{dataset}",
+        name=name,
+        provider="okx",
+        dataset=dataset,
+        description=description,
+        unit=unit,
+        frequency="intraday",
+        latency_class="realtime",
+        requires_api_key=False,
+        source_url=source_url,
+        license_note="OKX public API terms apply.",
+    )
+
+
+def _deribit_derivative(dataset: str, name: str, description: str, unit: str, source_url: str) -> SourceCatalogEntry:
+    return SourceCatalogEntry(
+        series_key=f"deribit:{dataset}",
+        name=name,
+        provider="deribit",
+        dataset=dataset,
+        description=description,
+        unit=unit,
+        frequency="intraday",
+        latency_class="realtime",
+        requires_api_key=False,
+        source_url=source_url,
+        license_note="Deribit public API terms apply.",
+    )
+
+
 def _official_calendar(dataset: str, name: str, description: str, source_url: str) -> SourceCatalogEntry:
     return SourceCatalogEntry(
         series_key=f"official_calendar:{dataset}",
@@ -384,6 +416,104 @@ CATALOG_ENTRIES: list[SourceCatalogEntry] = [
         "SKEW",
         "Cboe SKEW Index",
         "Cboe 30-day S&P 500 option skewness index for public tail risk monitoring.",
+    ),
+    _okx_derivative(
+        "BTC-USDT-SWAP:open_interest_usd",
+        "OKX BTC-USDT Swap Open Interest",
+        "OKX public BTC-USDT perpetual swap open interest in USD.",
+        "usd",
+        "https://www.okx.com/api/v5/public/open-interest",
+    ),
+    _okx_derivative(
+        "BTC-USDT-SWAP:funding_rate",
+        "OKX BTC-USDT Swap Funding Rate",
+        "OKX public BTC-USDT perpetual swap current funding rate.",
+        "rate",
+        "https://www.okx.com/api/v5/public/funding-rate",
+    ),
+    _okx_derivative(
+        "BTC-USDT-SWAP:basis_pct",
+        "OKX BTC-USDT Swap Mark Basis",
+        "OKX BTC-USDT perpetual mark price premium or discount versus index price.",
+        "percent",
+        "https://www.okx.com/api/v5/public/mark-price",
+    ),
+    _okx_derivative(
+        "ETH-USDT-SWAP:open_interest_usd",
+        "OKX ETH-USDT Swap Open Interest",
+        "OKX public ETH-USDT perpetual swap open interest in USD.",
+        "usd",
+        "https://www.okx.com/api/v5/public/open-interest",
+    ),
+    _okx_derivative(
+        "ETH-USDT-SWAP:funding_rate",
+        "OKX ETH-USDT Swap Funding Rate",
+        "OKX public ETH-USDT perpetual swap current funding rate.",
+        "rate",
+        "https://www.okx.com/api/v5/public/funding-rate",
+    ),
+    _okx_derivative(
+        "ETH-USDT-SWAP:basis_pct",
+        "OKX ETH-USDT Swap Mark Basis",
+        "OKX ETH-USDT perpetual mark price premium or discount versus index price.",
+        "percent",
+        "https://www.okx.com/api/v5/public/mark-price",
+    ),
+    _deribit_derivative(
+        "BTC-PERPETUAL:open_interest_usd",
+        "Deribit BTC Perpetual Open Interest",
+        "Deribit public BTC perpetual open interest.",
+        "usd",
+        "https://www.deribit.com/api/v2/public/ticker",
+    ),
+    _deribit_derivative(
+        "BTC-PERPETUAL:funding_8h",
+        "Deribit BTC Perpetual 8h Funding",
+        "Deribit public BTC perpetual projected 8-hour funding rate.",
+        "rate",
+        "https://www.deribit.com/api/v2/public/ticker",
+    ),
+    _deribit_derivative(
+        "BTC-PERPETUAL:basis_pct",
+        "Deribit BTC Perpetual Mark Basis",
+        "Deribit BTC perpetual mark price premium or discount versus index price.",
+        "percent",
+        "https://www.deribit.com/api/v2/public/ticker",
+    ),
+    _deribit_derivative(
+        "BTC:volatility_index",
+        "Deribit BTC Volatility Index",
+        "Deribit public BTC volatility index candle close.",
+        "index",
+        "https://www.deribit.com/api/v2/public/get_volatility_index_data",
+    ),
+    _deribit_derivative(
+        "ETH-PERPETUAL:open_interest_usd",
+        "Deribit ETH Perpetual Open Interest",
+        "Deribit public ETH perpetual open interest.",
+        "usd",
+        "https://www.deribit.com/api/v2/public/ticker",
+    ),
+    _deribit_derivative(
+        "ETH-PERPETUAL:funding_8h",
+        "Deribit ETH Perpetual 8h Funding",
+        "Deribit public ETH perpetual projected 8-hour funding rate.",
+        "rate",
+        "https://www.deribit.com/api/v2/public/ticker",
+    ),
+    _deribit_derivative(
+        "ETH-PERPETUAL:basis_pct",
+        "Deribit ETH Perpetual Mark Basis",
+        "Deribit ETH perpetual mark price premium or discount versus index price.",
+        "percent",
+        "https://www.deribit.com/api/v2/public/ticker",
+    ),
+    _deribit_derivative(
+        "ETH:volatility_index",
+        "Deribit ETH Volatility Index",
+        "Deribit public ETH volatility index candle close.",
+        "index",
+        "https://www.deribit.com/api/v2/public/get_volatility_index_data",
     ),
     _fred("SP500", "S&P 500 Index", "US large-cap equity index level.", "index", "daily"),
     _fred("NASDAQCOM", "NASDAQ Composite Index", "US Nasdaq Composite index level.", "index", "daily"),
