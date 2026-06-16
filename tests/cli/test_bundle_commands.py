@@ -32,6 +32,12 @@ VVIX_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VVIX_History
 SKEW_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/SKEW_History.csv"
 VIX1D_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX1D_History.csv"
 VIX9D_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX9D_History.csv"
+OKX_OPEN_INTEREST_URL = "https://www.okx.com/api/v5/public/open-interest"
+OKX_FUNDING_RATE_URL = "https://www.okx.com/api/v5/public/funding-rate"
+OKX_MARK_PRICE_URL = "https://www.okx.com/api/v5/public/mark-price"
+OKX_INDEX_TICKERS_URL = "https://www.okx.com/api/v5/market/index-tickers"
+DERIBIT_TICKER_URL = "https://www.deribit.com/api/v2/public/ticker"
+DERIBIT_VOLATILITY_INDEX_URL = "https://www.deribit.com/api/v2/public/get_volatility_index_data"
 FOMC_CALENDAR_URL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BEA_RELEASE_DATES_URL = "https://apps.bea.gov/API/signup/release_dates.json"
 BLS_CPI_URL = "https://www.bls.gov/schedule/news_release/cpi.htm"
@@ -45,6 +51,7 @@ EXPECTED_LIQUIDITY_REQUESTED = 12
 EXPECTED_MACRO_CALENDAR_REQUESTED = 6
 EXPECTED_FED_TEXT_REQUESTED = 4
 EXPECTED_TREASURY_AUCTION_REQUESTED = 12
+EXPECTED_CRYPTO_DERIVATIVES_REQUESTED = 14
 EXPECTED_MIN_MACRO_REQUESTED = 20
 VALIDATION_EXIT_CODE = 2
 YAHOO_CLOSE = 604.25
@@ -378,6 +385,43 @@ def mock_official_fed_text() -> None:
     )
 
 
+def mock_crypto_derivatives() -> None:
+    timestamp_ms = "1779235200000"
+    respx.get(OKX_OPEN_INTEREST_URL).mock(
+        return_value=Response(200, json={"code": "0", "data": [{"oiUsd": "1000", "ts": timestamp_ms}]})
+    )
+    respx.get(OKX_FUNDING_RATE_URL).mock(
+        return_value=Response(200, json={"code": "0", "data": [{"fundingRate": "0.0001", "ts": timestamp_ms}]})
+    )
+    respx.get(OKX_MARK_PRICE_URL).mock(
+        return_value=Response(200, json={"code": "0", "data": [{"markPx": "100.5", "ts": timestamp_ms}]})
+    )
+    respx.get(OKX_INDEX_TICKERS_URL).mock(
+        return_value=Response(200, json={"code": "0", "data": [{"idxPx": "100", "ts": timestamp_ms}]})
+    )
+    respx.get(DERIBIT_TICKER_URL).mock(
+        return_value=Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "result": {
+                    "timestamp": int(timestamp_ms),
+                    "open_interest": 2000,
+                    "funding_8h": 0.0002,
+                    "mark_price": 101,
+                    "index_price": 100,
+                },
+            },
+        )
+    )
+    respx.get(DERIBIT_VOLATILITY_INDEX_URL).mock(
+        return_value=Response(
+            200,
+            json={"jsonrpc": "2.0", "result": {"data": [[int(timestamp_ms), 65, 66, 64, 65.5]]}},
+        )
+    )
+
+
 class FakeYahooTicker:
     def __init__(self, symbol: str) -> None:
         self.symbol = symbol
@@ -697,6 +741,40 @@ def test_event_bundle_history_commands_are_first_class_sync_surfaces() -> None:
         "treasury_auction:30y_high_yield",
         "treasury_auction:30y_bid_to_cover",
         "treasury_auction:30y_indirect_bidder_pct",
+    }
+
+
+@respx.mock
+def test_crypto_derivatives_bundle_history_command_is_first_class_sync_surface() -> None:
+    mock_crypto_derivatives()
+
+    result = CliRunner().invoke(
+        app,
+        ["bundle", "history", "crypto-derivatives-core", "--start", "2026-05-20", "--end", "2026-05-20"],
+    )
+
+    assert result.exit_code == 0
+    snapshot = json.loads(result.stdout)["data"]["snapshot"]
+    assert snapshot["bundle"] == "crypto-derivatives-core"
+    assert snapshot["coverage"] == {
+        "requested": EXPECTED_CRYPTO_DERIVATIVES_REQUESTED,
+        "available": EXPECTED_CRYPTO_DERIVATIVES_REQUESTED,
+    }
+    assert {item["series_key"] for item in snapshot["observations"]} == {
+        "okx:BTC-USDT-SWAP:open_interest_usd",
+        "okx:BTC-USDT-SWAP:funding_rate",
+        "okx:BTC-USDT-SWAP:basis_pct",
+        "okx:ETH-USDT-SWAP:open_interest_usd",
+        "okx:ETH-USDT-SWAP:funding_rate",
+        "okx:ETH-USDT-SWAP:basis_pct",
+        "deribit:BTC-PERPETUAL:open_interest_usd",
+        "deribit:BTC-PERPETUAL:funding_8h",
+        "deribit:BTC-PERPETUAL:basis_pct",
+        "deribit:BTC:volatility_index",
+        "deribit:ETH-PERPETUAL:open_interest_usd",
+        "deribit:ETH-PERPETUAL:funding_8h",
+        "deribit:ETH-PERPETUAL:basis_pct",
+        "deribit:ETH:volatility_index",
     }
 
 

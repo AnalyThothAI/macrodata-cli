@@ -112,5 +112,5 @@ def test_runtime_rejects_unknown_cboe_dataset() -> None:
         runtime.gateway.fetch_latest("cboe:NOT_REAL")
 
 
-def test_package_version_advances_for_crypto_derivatives_release() -> None:
-    assert version("macrodata-cli") == "0.1.21"
+def test_package_version_advances_for_crypto_derivatives_history_release() -> None:
+    assert version("macrodata-cli") == "0.1.22"

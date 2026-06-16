@@ -394,6 +394,23 @@ def bundle_history_treasury_auction_core(
     )
 
 
+@bundle_history_app.command("crypto-derivatives-core")
+def bundle_history_crypto_derivatives_core(
+    start: str = typer.Option(..., "--start"),
+    end: str = typer.Option(..., "--end"),
+    fred_api_key: str | None = typer.Option(None, "--fred-api-key"),
+    output_format: str = typer.Option("json", "--format"),
+) -> None:
+    _run_bundle_history_command(
+        bundle_name="crypto-derivatives-core",
+        command="bundle.crypto-derivatives-core-history",
+        start=start,
+        end=end,
+        fred_api_key=fred_api_key,
+        output_format=output_format,
+    )
+
+
 @mcp_app.command("serve")
 def mcp_serve() -> None:
     serve()
