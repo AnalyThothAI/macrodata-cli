@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
-from defusedxml import ElementTree as ET
+from defusedxml import ElementTree as ET  # type: ignore[import-untyped]
 
 from macrodata.core.errors import MacrodataError
 from macrodata.core.models import MacroObservation, ProviderSmokeResult
