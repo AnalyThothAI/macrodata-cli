@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from io import StringIO
 from typing import Any
@@ -151,7 +152,7 @@ def _parse_value(*, dataset: str, observed_at: str, raw_value: Any) -> float:
         raise _parse_error(f"Cboe {dataset} value at {observed_at} is not numeric: {raw_text}") from exc
 
 
-def _value_column(dataset: str, fieldnames: list[str]) -> str | None:
+def _value_column(dataset: str, fieldnames: Sequence[str]) -> str | None:
     if dataset in fieldnames:
         return dataset
     if "CLOSE" in fieldnames:
